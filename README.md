@@ -52,7 +52,7 @@ This project aligns with the UN Sustainable Development Goals:
   
   * Simulate core house functions: light on/off states, alarm systems, and temperature sensors.
     
-  * Make it look good
+  * Make the actual logic so that web and mobile can use for their GUI
  
 ## Subgroup 4 - Free Choice / Innovation
 
