@@ -1,7 +1,8 @@
-# 🏠 Interactive House Project | HKR
+# Interactive House Project | HKR
 
 * Course: DA330B - Software Engineering
 * Institution: Kristianstad University
+* Group 4
 
 ## Framework: CDIO (Conceive, Design, Implement, Operate)
 
