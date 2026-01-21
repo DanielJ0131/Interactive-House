@@ -70,7 +70,7 @@ This project aligns with the UN Sustainable Development Goals:
    
 # Role of Project Manager (PM)
 
-The PM is responsible for the overall execution, leadership, and external representation of the group.
+The PM is responsible for the overall execution, leadership, and external representation of the group. PM will also work in one of the subgroups.
 
 * Internal Leadership: Leads the internal project meetings and coordinates between the four development subgroups.
 
@@ -84,7 +84,7 @@ The PM is responsible for the overall execution, leadership, and external repres
 
 # Role of Requirements Manager (RM)
 
-The RM focuses on the assistance of the PM and the integrity of the system's technical requirements.
+The RM focuses on the assistance of the PM and the integrity of the system's technical requirements. RM will also work in one of the subgroups.
 
 * Managerial Assistance: Assists the PM in project control and administrative oversight.
 
