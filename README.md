@@ -32,7 +32,7 @@ This project aligns with the UN Sustainable Development Goals:
 
 ## Subgroup 2 - Units
 
-* Members: 3.
+* Members: 3
 
 * Role: Controller Interface: Develops the interaction logic and user interfaces that are informed by the server about available devices.
 
@@ -56,7 +56,7 @@ This project aligns with the UN Sustainable Development Goals:
  
 ## Subgroup 4 - Free Choice / Innovation
 
-  * Members: 3.
+  * Members: 3
 
   * Role: Motivated Choice: Focuses on advanced simulated devices and accessibility features to increase a person's independence.
 
@@ -67,6 +67,34 @@ This project aligns with the UN Sustainable Development Goals:
     * Experiment with advanced inputs like speech or gesture recognition.
    
     * Come up with new innovative ideas to our project
+   
+# Role of Project Manager (PM)
+
+The PM is responsible for the overall execution, leadership, and external representation of the group.
+
+* Internal Leadership: Leads the internal project meetings and coordinates between the four development subgroups.
+
+* External Representation: Acts as the primary spokesperson to the customers and super project managers (teachers).
+
+* Formal Accountability: Answers for the project progress during formal bi-weekly meetings, specifically regarding prototypes and the status of results.
+
+* Project Oversight: Exercises control over the project process and ensures the group meets the iterative and incremental milestones of the RUP approach.
+
+* Final Delivery: Manages the final report and ensures all 24 artefacts are finalized and integrated for the final presentation
+
+# Role of Requirements Manager (RM)
+
+The RM focuses on the assistance of the PM and the integrity of the system's technical requirements.
+
+* Managerial Assistance: Assists the PM in project control and administrative oversight.
+
+* Requirements Consistency: Ensures that the functional and non-functional requirements consider the project as a whole rather than just isolated subgroups.
+
+* Technical Coordination: Facilitates the negotiation of interfaces and protocols between subgroups to ensure the server can communicate with units and devices.
+
+* Documentation Integrity: Responsible for discussing and answering for the project's requirements documents and artefacts during formal meetings.
+
+* Collaborative Representation: Represents the project alongside the PM in less formal meetings with the teaching staff.
 
 # Mandatory Process Artefacts (24 Total)
 ## Each of the four subgroups is responsible for maintaining a complete set of these 6 documents:
