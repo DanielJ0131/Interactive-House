@@ -1,0 +1,10 @@
+{
+  "rooms": [
+    { "id": "living-room", "name": "Living Room", "icon": "sofa-outline" },
+    { "id": "bedroom", "name": "Bedroom", "icon": "bed-outline" },
+    { "id": "kitchen", "name": "Kitchen", "icon": "fridge-outline" },
+    { "id": "bathroom", "name": "Bathroom", "icon": "shower" },
+    { "id": "garage", "name": "Garage", "icon": "garage-variant" },
+    { "id": "office", "name": "Office", "icon": "laptop" }
+  ]
+}
