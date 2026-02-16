@@ -34,20 +34,20 @@ npx expo start -c
 ## Project Structure
 ```text
 app
-├── (auth)             		  	# Authentication flow
-│   ├── _layout.tsx     		 # Auth stack & transitions
-│   ├── login.tsx        	 	# User Sign-in
-│   └── signup.tsx       	   # Account Creation
-├── (tabs)               		   # Main App (Authenticated)
-│   ├── _layout.tsx   	     # Tab bar config & icons
-│   ├── ai.tsx          		  # AI Assistant Interface
-│   ├── device_hub.tsx    # Actuator & Sensor categories
-│   ├── [device].tsx         # Dynamic hardware specs (D2, A0, etc.)
-│   ├── home.tsx            # Primary Device Dashboard
-│   └── speech.tsx         # Voice Command Processing
-├── _layout.tsx             # Root Entry & Theme Provider
-├── index.tsx               # Welcome / Landing Screen
-├── modal.tsx             # System Status & Connection Toggle
+├── (auth)               # Authentication flow
+│   ├── _layout.tsx      # Auth stack & transitions
+│   ├── login.tsx        # User Sign-in
+│   └── signup.tsx       # Account Creation
+├── (tabs)               # Main App (Authenticated)
+│   ├── _layout.tsx      # Tab bar config & icons
+│   ├── ai.tsx           # AI Assistant Interface
+│   ├── device_hub.tsx   # Actuator & Sensor categories
+│   ├── [device].tsx     # Dynamic hardware specs (D2, A0, etc.)
+│   ├── home.tsx         # Primary Device Dashboard
+│   └── speech.tsx       # Voice Command Processing
+├── _layout.tsx          # Root Entry & Theme Provider
+├── index.tsx            # Welcome / Landing Screen
+├── modal.tsx            # System Status & Connection Toggle
 ├── +html.tsx            # Web Root Template
-└── +not-found.tsx  # 404 Error Screen
+└── +not-found.tsx       # 404 Error Screen
 ```
