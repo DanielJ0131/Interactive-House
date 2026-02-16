@@ -31,23 +31,22 @@ npx expo start -c
 * NativeWind - Tailwind CSS styling for React Native components.
 * TypeScript - Static typing for more reliable, scalable code.
 
-## Detailed App Structure (Routing)
-
-The `app/` directory uses Expo Router for file-based navigation. Here is what each file does:
-
-### Root Level (`app/`)
-* **`_layout.tsx`**: The main entry point. It wraps the entire app in global providers and defines the root stack.
-* **`modal.tsx`**: A specialized screen for settings and checking database connections.
-* **`+html.tsx`**: Provides the root HTML template for the web version of the app.
-* **`+not-found.tsx`**: The "404" screen shown if the user navigates to an invalid route.
-
-### Tab Navigation (`app/(tabs)/`)
-These files define the core screens accessible via the bottom navigation bar:
-
-* **`_layout.tsx`**: Configures the bottom tab bar (icons, labels, and behavior).
-* **`index.tsx`**: The home or landing screen of the application.
-* **`house_hub.tsx`**: The central dashboard for manual home automation (Light, Door, and Window toggles).
-* **`ai.tsx`**: The AI interface. A dedicated tab for interacting with AI via text-based commands.
-* **`speech.tsx`**: The Speech interface. A tab dedicated to capturing speech and processing voice commands.
-* **`[room].tsx`**: A dynamic route for individual room pages (e.g., `/kitchen`, `/bedroom`), allowing for reusable control layouts.
+## Project Structure
+app
+├── (auth)               # Authentication flow (Modal-based)
+│   ├── _layout.tsx      # Defines the sub-stack for the auth screens.
+│   ├── login.tsx        # User Sign-in
+│   └── signup.tsx       # Account Creation
+├── (tabs)               # Main Application Hub (Authenticated)
+│   ├── ai.tsx           # AI Assistant Interface
+│   ├── device_hub.tsx   # Categorized Control Center (Actuators/Sensors)
+│   ├── [device].tsx     # Dynamic Hardware Detail & Technical Specs
+│   ├── home.tsx         # Primary Device Dashboard
+│   ├── _layout.tsx      # Tab Navigation Configuration
+│   └── speech.tsx       # Voice Command Processing
+├── _layout.tsx          # Root Entry Point & Theme Provider
+├── index.tsx            # Welcome / Landing Screen
+├── modal.tsx            # System Connectivity & Database Status
+├── +html.tsx            # Web Root Template
+└── +not-found.tsx       # 404 Error Screen
 

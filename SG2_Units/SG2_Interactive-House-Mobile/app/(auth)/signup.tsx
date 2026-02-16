@@ -67,7 +67,7 @@ export default function SignupScreen() {
                 placeholderTextColor="#475569"
                 value={name}
                 onChangeText={setName}
-                className="bg-slate-900 border border-slate-800 text-white p-4 rounded-2xl mb-4"
+                className="bg-slate-900 border border-slate-800 text-white p-4 rounded-2xl"
               />
               <TextInput
                 placeholder="Email Address"
@@ -76,14 +76,14 @@ export default function SignupScreen() {
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
-                className="bg-slate-900 border border-slate-800 text-white p-4 rounded-2xl mb-4"
+                className="bg-slate-900 border border-slate-800 text-white p-4 rounded-2xl"
               />
               <TextInput
                 placeholder="Password"
                 placeholderTextColor="#475569"
                 value={password}
                 onChangeText={setPassword}
-                className="bg-slate-900 border border-slate-800 text-white p-4 rounded-2xl mb-4"
+                className="bg-slate-900 border border-slate-800 text-white p-4 rounded-2xl"
                 secureTextEntry
               />
               <TextInput
@@ -91,7 +91,7 @@ export default function SignupScreen() {
                 placeholderTextColor="#475569"
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
-                className="bg-slate-900 border border-slate-800 text-white p-4 rounded-2xl mb-8"
+                className="bg-slate-900 border border-slate-800 text-white p-4 rounded-2xl"
                 secureTextEntry
               />
 
