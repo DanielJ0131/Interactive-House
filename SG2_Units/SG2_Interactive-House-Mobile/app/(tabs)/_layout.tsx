@@ -4,40 +4,24 @@ import React, { useState } from 'react';
 import { Platform, Pressable, View } from 'react-native';
 import { cssInterop } from 'nativewind';
 
-/**
- * NativeWind Compatibility Bridge:
- * MaterialCommunityIcons does not support 'className' by default.
- * cssInterop "injects" NativeWind support, mapping the 'className' prop 
- * to the component's internal 'style' object.
- */
 cssInterop(MaterialCommunityIcons, {
   className: 'style',
 });
 
-/**
- * Root Tab Layout Component:
- * Manages the main navigation structure, styling, and bottom tab bar configuration.
- */
 export default function TabLayout() {
   const router = useRouter();
-
-  /**
-   * isConnected: UI-only state placeholder for system health.
-   * Can be hooked into a context provider later for real Firebase/Network status.
-   */
   const [isConnected, setIsConnected] = useState(false);
 
   return (
     <Tabs
       screenOptions={{
-        // Global visual identity for active/inactive navigation states
-        tabBarActiveTintColor: '#0ea5e9', // Sky 500
-        tabBarInactiveTintColor: '#64748b', // Slate 500
+        tabBarActiveTintColor: '#0ea5e9',
+        tabBarInactiveTintColor: '#64748b',
+        tabBarShowLabel: true,
         tabBarLabelPosition: 'below-icon',
 
-        // Global Header Styling
         headerStyle: {
-          backgroundColor: '#020617', // Slate 950
+          backgroundColor: '#020617',
           borderBottomWidth: 1,
           borderBottomColor: '#1e293b',
         },
@@ -48,46 +32,31 @@ export default function TabLayout() {
           fontSize: 18,
         },
 
-        // Bottom Navigation Bar Configuration
         tabBarStyle: {
           backgroundColor: '#020617',
           borderTopColor: '#1e293b',
+          height: Platform.OS === 'ios' ? 88 : 75,
           paddingTop: 8,
-          /**
-           * Platform-Specific Heights:
-           * iOS (88) is the standard for modern devices.
-           * Android (72) is specifically tuned to prevent cropping of descenders 
-           * (like the letter 'p' in "Speech").
-           */
-          height: Platform.OS === 'ios' ? 88 : 72, 
+          paddingBottom: Platform.OS === 'ios' ? 30 : 12, 
         },
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '500',
-          /**
-           * Vertical alignment for text labels:
-           * Android (10) lifts the label slightly to create a safety buffer 
-           * between the text and the bottom of the device screen.
-           */
-          marginBottom: Platform.OS === 'ios' ? 0 : 10, 
+          marginBottom: Platform.OS === 'android' ? 5 : 0,
         },
       }}
     >
-      {/* Main dashboard for room-based controls */}
       <Tabs.Screen
-        name="index"
+        name="home"
         options={{
-          title: 'Rooms',
+          title: 'Devices',
           tabBarIcon: ({ color, focused }) => (
-            <View className="items-center justify-center">
-              <MaterialCommunityIcons
-                name={focused ? 'view-dashboard' : 'view-dashboard-outline'}
-                size={26}
-                color={color}
-              />
-            </View>
+            <MaterialCommunityIcons
+              name={focused ? 'developer-board' : 'developer-board'}
+              size={26}
+              color={color}
+            />
           ),
-          // Connection status indicator in the top right
           headerRight: () => (
             <View className="flex-row items-center mr-4">
               <Link href="/modal" asChild>
@@ -97,7 +66,6 @@ export default function TabLayout() {
                       name={isConnected ? 'shield-check' : 'shield-alert-outline'}
                       size={26}
                       color={isConnected ? '#22c55e' : '#ef4444'}
-                      // NativeWind utility used for press interaction feedback
                       className={pressed ? 'opacity-60' : 'opacity-100'}
                     />
                   )}
@@ -108,14 +76,13 @@ export default function TabLayout() {
         }}
       />
 
-      {/* Interface for Gemini AI interactions */}
       <Tabs.Screen
         name="ai"
         options={{
           title: 'AI',
           tabBarIcon: ({ color, focused }) => (
             <MaterialCommunityIcons 
-              name={focused ? 'robot' : 'robot-outline'} 
+              name={focused ? 'robot-industrial' : 'robot-industrial-outline'} 
               size={26} 
               color={color} 
             />
@@ -123,14 +90,13 @@ export default function TabLayout() {
         }}
       />
 
-      {/* Interface for Speech-to-Text command processing */}
       <Tabs.Screen
         name="speech"
         options={{
           title: 'Speech',
           tabBarIcon: ({ color, focused }) => (
             <MaterialCommunityIcons 
-              name={focused ? 'microphone' : 'microphone-outline'} 
+              name={focused ? 'waveform' : 'waveform'} 
               size={26} 
               color={color} 
             />
@@ -138,14 +104,13 @@ export default function TabLayout() {
         }}
       />
 
-      {/* High-level global status dashboard */}
       <Tabs.Screen
-        name="house_hub"
+        name="device_hub"
         options={{
-          title: 'House Hub',
+          title: 'Hub',
           tabBarIcon: ({ color, focused }) => (
             <MaterialCommunityIcons 
-              name={focused ? 'home-variant' : 'home-variant-outline'} 
+              name={focused ? 'memory' : 'memory'} 
               size={26} 
               color={color} 
             />
@@ -153,16 +118,14 @@ export default function TabLayout() {
         }}
       />
 
-      {/**
-       * Dynamic Room Details Route:
-       * - href: null ensures this screen doesn't create a fifth tab icon.
-       * - tabBarStyle: { display: 'none' } hides the bar for a focused detail view.
-       */}
+      {/* This route handles individual device pages. 
+          By defining headerLeft here, you don't need back buttons in [device].tsx 
+      */}
       <Tabs.Screen
-        name="[room]"
+        name="[device]"
         options={{
           href: null,
-          headerTitle: 'Room Details',
+          headerTitle: 'Component Specs',
           tabBarStyle: { display: 'none' },
           headerLeft: () => (
             <Pressable
