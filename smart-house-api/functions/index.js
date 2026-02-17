@@ -153,4 +153,90 @@ app.patch('/users/update-password', authenticate, async (req, res) => {
   }
 });
 
+// -------- ADD OR UPDATE DEVICE FIELD --------
+app.patch('/users/device', authenticate, async (req, res) => {
+  try {
+    const { deviceName, value } = req.body;
+
+    if (!deviceName || value === undefined) {
+      return res.status(400).json({ error: "Missing deviceName or value" });
+    }
+
+    await db.collection('users')
+      .doc(req.username)
+      .update({
+        [deviceName]: value
+      });
+
+    res.json({ message: "Device updated", deviceName, value });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+// -------- DELETE DEVICE FIELD --------
+app.delete('/users/device', authenticate, async (req, res) => {
+  try {
+    const { deviceName } = req.body;
+
+    if (!deviceName) {
+      return res.status(400).json({ error: "Missing deviceName" });
+    }
+
+    // Prevent deleting password
+    if (deviceName === "password") {
+      return res.status(403).json({ error: "Cannot delete password field" });
+    }
+
+    await db.collection('users')
+      .doc(req.username)
+      .update({
+        [deviceName]: admin.firestore.FieldValue.delete()
+      });
+
+    res.json({ message: "Device removed", deviceName });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+// -------- GET CURRENT USER DATA --------
+app.get('/users/me', authenticate, async (req, res) => {
+  try {
+    const userDoc = await db.collection('users').doc(req.username).get();
+
+    if (!userDoc.exists) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const userData = userDoc.data();
+    delete userData.password;
+
+    res.json(userData);
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+app.get('/', (req, res) => {
+  res.json({
+    message: "Smart House API running",
+    endpoints: {
+      "POST /users/register": "Register new user",
+      "POST /users/login": "Login user",
+      "PATCH /users/update-password": "Update password (auth required)",
+      "PATCH /users/device": "Add/update device field (auth required)",
+      "DELETE /users/device": "Delete device field (auth required)",
+      "GET /users/me": "Get user data (auth required)"
+    }
+  });
+});
+
+
 export const api = https.onRequest(app);
