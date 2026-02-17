@@ -7,6 +7,18 @@ type Message = {
   sender: "user" | "ai";
 };
 
+/**
+ * AiScreen
+ *
+ * Placeholder screen for future AI integration.
+ * This view is intended to handle:
+ * - AI chat functionality
+ * - Voice commands
+ * - Smart device automation through AI
+ *
+ * At the moment, this screen only displays a basic message.
+ * Full functionality will be implemented in later development stages.
+ */
 export default function AiScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");

@@ -15,13 +15,14 @@ export default function ModalScreen() {
         bounces={false}
       >
         <View className="items-center mb-10 mt-4">
-          <div className={`p-6 rounded-full mb-4 ${isConnected ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
+          <View className={`p-6 rounded-full mb-4 ${isConnected ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
             <MaterialCommunityIcons 
               name={isConnected ? "shield-check" : "shield-alert-outline"} 
               size={56} 
               color={isConnected ? "#22c55e" : "#ef4444"} 
             />
-          </div>
+          </View>
+          
           <Text className="text-white text-3xl font-extrabold text-center">System Status</Text>
           <Text className="text-slate-500 text-center text-lg mt-2">
             {isConnected ? "Your smart home is secure." : "System Offline."}
