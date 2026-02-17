@@ -86,4 +86,71 @@ app.post('/users/register', async (req, res) => {
   }
 });
 
+// -------- LOGIN USER --------
+app.post('/users/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({ error: "Missing credentials" });
+    }
+
+    const userRef = db.collection('users').doc(username);
+    const userDoc = await userRef.get();
+
+    if (!userDoc.exists) {
+      return res.status(400).json({ error: "User not found" });
+    }
+
+    const userData = userDoc.data();
+
+    const validPassword = await bcrypt.compare(password, userData.password);
+
+    if (!validPassword) {
+      return res.status(401).json({ error: "Invalid password" });
+    }
+
+    const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: "2h" });
+
+    res.json({ token });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+// -------- UPDATE PASSWORD --------
+app.patch('/users/update-password', authenticate, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: "Missing current or new password" });
+    }
+
+    // fetch stored password to compare
+    const userRef = db.collection('users').doc(req.username);
+    const userDoc = await userRef.get();
+    if (!userDoc.exists) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const userData = userDoc.data();
+    const validCurrent = await bcrypt.compare(currentPassword, userData.password);
+    if (!validCurrent) {
+      return res.status(401).json({ error: "Current password is incorrect" });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await userRef.update({ password: hashedPassword });
+
+    res.json({ message: "Password updated successfully" });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export const api = https.onRequest(app);
