@@ -2,6 +2,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import React, { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
+import { router } from 'expo-router'; // Add this for navigation
 
 export default function ModalScreen() {
   const [isConnected, setIsConnected] = useState(false);
@@ -10,8 +11,18 @@ export default function ModalScreen() {
     <View style={{ flex: 1, backgroundColor: '#020617' }}>
       <StatusBar style="light" />
       
+      {/* --- GO BACK BUTTON --- */}
+      <View className="absolute top-12 left-6 z-10">
+        <Pressable 
+          onPress={() => router.back()}
+          className="bg-slate-900/80 border border-slate-800 p-3 rounded-full active:bg-slate-800"
+        >
+          <MaterialCommunityIcons name="chevron-left" size={28} color="white" />
+        </Pressable>
+      </View>
+      
       <ScrollView 
-        contentContainerStyle={{ padding: 24 }}
+        contentContainerStyle={{ padding: 24, paddingTop: 100 }} // Added padding for the back button
         bounces={false}
       >
         <View className="items-center mb-10 mt-4">
@@ -59,7 +70,7 @@ export default function ModalScreen() {
         
         <Pressable 
           onPress={() => setIsConnected(!isConnected)}
-          className="mt-4 p-4 bg-slate-800 rounded-2xl items-center"
+          className="mt-4 p-4 bg-slate-800 rounded-2xl items-center active:bg-slate-700"
         >
           <Text className="text-slate-400 font-bold">Simulate Connection Toggle</Text>
         </Pressable>

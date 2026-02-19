@@ -31,6 +31,22 @@ export default function TabLayout() {
           fontWeight: 'bold',
           fontSize: 18,
         },
+                  headerRight: () => (
+            <View className="flex-row items-center mr-4">
+              <Link href="/modal" asChild>
+                <Pressable hitSlop={20}>
+                  {({ pressed }) => (
+                    <MaterialCommunityIcons
+                      name={isConnected ? 'shield-check' : 'shield-alert-outline'}
+                      size={26}
+                      color={isConnected ? '#22c55e' : '#ef4444'}
+                      className={pressed ? 'opacity-60' : 'opacity-100'}
+                    />
+                  )}
+                </Pressable>
+              </Link>
+            </View>
+          ),
 
         tabBarStyle: {
           backgroundColor: '#020617',
@@ -56,23 +72,7 @@ export default function TabLayout() {
               size={26}
               color={color}
             />
-          ),
-          headerRight: () => (
-            <View className="flex-row items-center mr-4">
-              <Link href="/modal" asChild>
-                <Pressable hitSlop={20}>
-                  {({ pressed }) => (
-                    <MaterialCommunityIcons
-                      name={isConnected ? 'shield-check' : 'shield-alert-outline'}
-                      size={26}
-                      color={isConnected ? '#22c55e' : '#ef4444'}
-                      className={pressed ? 'opacity-60' : 'opacity-100'}
-                    />
-                  )}
-                </Pressable>
-              </Link>
-            </View>
-          ),
+          )
         }}
       />
 
