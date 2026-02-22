@@ -15,18 +15,21 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.dani.interactivehouse"
+      "bundleIdentifier": "com.dani.interactivehouse",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      },
-      "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false,
-      "package": "com.dani.interactivehouse",
-      "permissions": []
+    "permissions": ["RECORD_AUDIO"],
+    "adaptiveIcon": {
+    "foregroundImage": "./assets/images/adaptive-icon.png",
+    "backgroundColor": "#ffffff"
     },
+    "edgeToEdgeEnabled": true,
+    "predictiveBackGestureEnabled": false,
+    "package": "com.dani.interactivehouse"
+  },
     "web": {
       "bundler": "metro",
       "output": "static",
@@ -37,6 +40,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "36b3f6e6-c83c-443d-8c90-7f119fb8cf93"
+      }
+    },
+    "owner": "daniell_110"
   }
 }
