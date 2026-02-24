@@ -1,156 +1,171 @@
-import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, FlatList } from "react-native";
+import React, { useRef, useState } from "react";
+import { View, Text, TextInput, TouchableOpacity, FlatList, Keyboard } from "react-native";
 
-/**
- * Message type definition
- * Represents a single chat message in the conversation.
- */
 type Message = {
-  id: string;              // Unique identifier for each message
-  text: string;            // Message content
-  sender: "user" | "ai";   // Indicates whether message is from user or AI
+  id: string;
+  text: string;
+  sender: "user" | "ai";
 };
 
-/**
- * AiScreen Component
- *
- * AI chat interface connected to backend proxy.
- * - Sends user messages to backend endpoint
- * - Backend communicates with Gemini API
- * - Displays AI responses in chat format
- */
 export default function AiScreen() {
-
-  // Stores the full chat conversation
   const [messages, setMessages] = useState<Message[]>([]);
-
-  // Stores the current user input
   const [input, setInput] = useState("");
-
-  // Controls loading state while waiting for AI response
   const [loading, setLoading] = useState(false);
 
-  /**
-   * handleSend()
-   * Triggered when user presses the "Send" button.
-   * - Adds user message to chat
-   * - Calls backend API
-   * - Displays AI response
-   */
+  const listRef = useRef<FlatList<Message>>(null);
+
+  const scrollToBottom = () => {
+    
+    setTimeout(() => {
+      listRef.current?.scrollToEnd({ animated: true });
+    }, 50);
+  };
+
+  const pushMessage = (msg: Message) => {
+    setMessages((prev) => [...prev, msg]);
+  };
+
   const handleSend = async () => {
+    const trimmed = input.trim();
+    if (!trimmed) return;
+    if (loading) return;
 
-    // Prevent sending empty messages
-    if (!input.trim()) return;
+    const baseUrl = process.env.EXPO_PUBLIC_API_URL;
 
-    // Create user message object
+    
+    if (!baseUrl) {
+      pushMessage({
+        id: Date.now().toString(),
+        text: "Missing EXPO_PUBLIC_API_URL. Add it in .env and restart Expo with: npx expo start -c",
+        sender: "ai",
+      });
+      return;
+    }
+
     const userMessage: Message = {
       id: Date.now().toString(),
-      text: input,
+      text: trimmed,
       sender: "user",
     };
 
-    // Add user message to chat list
-    setMessages((prev) => [...prev, userMessage]);
-
-    // Clear input field
+    pushMessage(userMessage);
     setInput("");
-
-    // Show loading indicator
     setLoading(true);
+    Keyboard.dismiss();
+    scrollToBottom();
 
     try {
-      // Send request to backend proxy (Gemini API handled server-side)
-      const response = await fetch(
-        "http://192.168.0.40:3000/api/ai-chat",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ message: userMessage.text }),
-        }
-      );
+      const response = await fetch(`${baseUrl}/api/ai-chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ message: userMessage.text }),
+      });
 
-      // Parse backend response
-      const data = await response.json();
 
-      // Create AI message from backend reply
+      const rawText = await response.text();
+
+      let data: any = {};
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        // not JSON, keep data empty
+      }
+
+      if (!response.ok) {
+        const errorMsg =
+          data?.error ||
+          rawText ||
+          `Request failed with status ${response.status}`;
+        throw new Error(errorMsg);
+      }
+
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text:
-          data?.reply ||
-          data?.error ||
-          "No response from AI.",
+        text: data?.reply ?? "No response from AI.",
         sender: "ai",
       };
 
-      // Add AI response to chat
-      setMessages((prev) => [...prev, aiMessage]);
-
-    } catch (error) {
-
-      // If backend is unreachable or network fails
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: (Date.now() + 1).toString(),
-          text:
-            "Could not reach AI backend. Make sure the server is running and on the same Wi-Fi.",
-          sender: "ai",
-        },
-      ]);
-
+      pushMessage(aiMessage);
+      scrollToBottom();
+    } catch (error: any) {
+      pushMessage({
+        id: (Date.now() + 1).toString(),
+        text:
+          error?.message ||
+          "Could not reach AI backend. Make sure the server is running and on the same Wi-Fi.",
+        sender: "ai",
+      });
+      scrollToBottom();
     } finally {
-      // Hide loading indicator
       setLoading(false);
     }
   };
 
   return (
-    <View className="flex-1 bg-gray-100">
-
-      {/* Chat Message List */}
+    <View className="flex-1 bg-[#020617]">
       <FlatList
+        ref={listRef}
         data={messages}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ padding: 12 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 12 }}
         renderItem={({ item }) => (
           <View
-            className={`p-3 my-1 rounded-xl max-w-[80%] ${
-              item.sender === "user"
-                ? "self-end bg-blue-500"      // User messages aligned right
-                : "self-start bg-gray-300"    // AI messages aligned left
+            className={`my-1 max-w-[85%] ${
+              item.sender === "user" ? "self-end" : "self-start"
             }`}
           >
-            <Text className="text-black">{item.text}</Text>
+            <View
+              className={`px-4 py-3 rounded-3xl border ${
+                item.sender === "user"
+                  ? "bg-sky-500/20 border-sky-500/30"
+                  : "bg-slate-900/50 border-slate-800"
+              }`}
+            >
+              <Text
+                className={`text-[15px] leading-5 ${
+                  item.sender === "user" ? "text-white" : "text-slate-200"
+                }`}
+              >
+                {item.text}
+              </Text>
+            </View>
           </View>
         )}
+        onContentSizeChange={scrollToBottom}
       />
 
-      {/* Loading Indicator */}
       {loading && (
-        <Text className="text-center text-gray-500 italic mb-2">
+        <Text className="text-center text-slate-500 italic mb-2">
           AI is typing...
         </Text>
       )}
 
-      {/* Input Section */}
-      <View className="flex-row p-3 bg-white border-t border-gray-300">
+      <View className="flex-row p-4 bg-[#020617] border-t border-slate-900">
         <TextInput
           value={input}
           onChangeText={setInput}
           placeholder="Ask something..."
-          className="flex-1 border border-gray-300 rounded-lg px-3 py-2"
+          placeholderTextColor="#64748b"
+          className="flex-1 bg-slate-900/50 border border-slate-800 rounded-3xl px-4 py-3 text-slate-200"
+          editable={!loading}
+          returnKeyType="send"
+          onSubmitEditing={handleSend}
         />
 
         <TouchableOpacity
           onPress={handleSend}
-          className="ml-2 bg-blue-500 px-4 justify-center rounded-lg"
+          disabled={loading || !input.trim()}
+          className={`ml-3 px-5 justify-center rounded-3xl border bg-sky-500/20 border-sky-500/30 ${
+            loading || !input.trim() ? "opacity-40" : "active:opacity-70"
+          }`}
         >
-          <Text className="text-white font-bold">Send</Text>
+          <Text className="text-sky-400 font-bold">
+            {loading ? "..." : "Send"}
+          </Text>
         </TouchableOpacity>
       </View>
-
     </View>
   );
 }
