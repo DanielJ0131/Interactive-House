@@ -1,4 +1,4 @@
-@import "tailwindcss";
+
 
 :root {
   --bg: #0b1220;
@@ -37,3 +37,7 @@ body {
   0%, 100% { opacity: 0.55; transform: scale(1); }
   50% { opacity: 0.9; transform: scale(1.08); }
 }
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
