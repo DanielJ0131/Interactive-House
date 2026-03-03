@@ -110,7 +110,7 @@ export default function ModalScreen() {
             </View>
             <View className={`px-4 py-1.5 rounded-full border ${isLoggedIn ? 'bg-green-500/10 border-green-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
               <Text className={`font-bold text-xs uppercase tracking-widest ${isLoggedIn ? 'text-green-500' : 'text-red-500'}`}>
-                {isLoggedIn ? 'Authenticated' : 'Missing'}
+                {isLoggedIn ? 'Auth' : 'Missing'}
               </Text>
             </View>
           </View>

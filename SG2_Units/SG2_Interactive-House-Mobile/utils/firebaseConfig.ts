@@ -1,10 +1,16 @@
+import 'react-native-get-random-values';
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { initializeAuth, getAuth } from "firebase/auth";
 // @ts-ignore - TS reads web types by default, but Metro finds this at runtime on mobile
 import { getReactNativePersistence } from "firebase/auth"; 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from "react-native"; // 1. Import Platform
+import { Platform } from "react-native";
+import { 
+  getAI, 
+  getGenerativeModel, 
+  GoogleAIBackend 
+} from 'firebase/ai';
 
 export const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
 export const REGISTRATION_API_KEY = process.env.REGISTRATION_API_KEY;
@@ -16,15 +22,12 @@ const firebaseConfig = {
   storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_SENDER_ID,
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.EXPO_PUBLIC_MEASUREMENT_ID,
 };
 
-// Check if Firebase is already initialized
 const isAppUninitialized = getApps().length === 0;
-
 export const app = isAppUninitialized ? initializeApp(firebaseConfig) : getApp();
-export const db = getFirestore(app);
 
+export const db = getFirestore(app);
 // 2. Initialize Auth conditionally
 const initializeFirebaseAuth = () => {
   // If we are running on the web, use the standard getAuth (handles persistence automatically)
@@ -41,3 +44,11 @@ const initializeFirebaseAuth = () => {
 };
 
 export const auth = initializeFirebaseAuth();
+
+export const ai = getAI(app, { 
+  backend: new GoogleAIBackend() 
+});
+
+export const geminiModel = getGenerativeModel(ai, { 
+  model: "gemini-3-flash-preview" 
+});

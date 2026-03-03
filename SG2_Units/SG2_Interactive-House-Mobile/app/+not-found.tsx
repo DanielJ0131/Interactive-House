@@ -3,6 +3,7 @@ import { Text, View, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { router } from 'expo-router';
 
 export default function NotFoundScreen() {
   return (
@@ -21,22 +22,23 @@ export default function NotFoundScreen() {
           <Text className="text-white text-4xl font-black tracking-tight text-center uppercase">
             Device Not Found
           </Text>
-          
+
           <Text className="text-slate-400 text-lg text-center mt-4 leading-6">
             It looks like this part of the{"\n"}house doesn't exist yet.
           </Text>
         </View>
 
         <View>
-          <Link href="/" asChild>
-            <Pressable 
-              className="bg-sky-500 p-5 rounded-2xl active:bg-sky-600 shadow-lg shadow-sky-500/20"
+          {/* Back Button */}
+          <View className="items-center">
+            <Pressable
+              onPress={() => router.back()}
+              className="flex-row items-center p-2 active:opacity-60"
             >
-              <Text className="text-white text-center font-bold text-lg">
-                Return to Main Screen
-              </Text>
+              <Text className="text-white bg-slate-900/80 border border-slate-800 p-3 rounded-full active:bg-slate-800"
+              >Go Back</Text>
             </Pressable>
-          </Link>
+          </View>
         </View>
 
         <View className="items-center">
