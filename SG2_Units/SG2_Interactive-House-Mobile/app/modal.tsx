@@ -6,29 +6,35 @@ import { router } from 'expo-router';
 // 1. Import Firebase Auth and Firestore sync
 import { onSnapshotsInSync } from 'firebase/firestore'; 
 import { onAuthStateChanged } from 'firebase/auth';
-import { db, auth } from '../utils/firebaseConfig'; 
+import { db, auth } from '../utils/firebaseConfig';
+import { useGuest } from '../utils/GuestContext';
 
 export default function ModalScreen() {
+  const { isGuest } = useGuest();
   const [isConnected, setIsConnected] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
+    // Skip Firebase listeners in guest mode
+    if (isGuest) {
+      setIsChecking(false);
+      return;
+    }
+
     // 1. Monitor Firestore Cloud Sync
-    // This triggers when local data is successfully synchronized with the cloud
     const unsubscribeSync = onSnapshotsInSync(db, () => {
       setIsConnected(true);
     });
 
     // 2. Check for Firebase User Session
-    // This is the "correct" way to check login status in Firebase
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       if (user) {
         setIsLoggedIn(true);
       } else {
         setIsLoggedIn(false);
       }
-      setIsChecking(false); // Stop the spinner once auth state is determined
+      setIsChecking(false);
     });
 
     // Safety timeout: stop spinner if cloud doesn't respond quickly
@@ -41,10 +47,10 @@ export default function ModalScreen() {
       unsubscribeAuth();
       clearTimeout(timer);
     };
-  }, []);
+  }, [isGuest]);
 
-  // System is only "Ready" if cloud is synced AND user is logged in
-  const isSystemReady = isConnected && isLoggedIn;
+  // System is only "Ready" if cloud is synced AND user is logged in (guests are NOT ready)
+  const isSystemReady = !isGuest && isConnected && isLoggedIn;
 
   return (
     <View style={{ flex: 1, backgroundColor: '#020617' }}>
@@ -78,11 +84,13 @@ export default function ModalScreen() {
           <Text className="text-slate-500 text-center text-lg mt-2">
             {isChecking 
               ? "Verifying house credentials..." 
-              : isSystemReady 
-                ? "Your smart home is secure." 
-                : !isLoggedIn 
-                  ? "Authentication required." 
-                  : "Cloud connection unreachable."}
+              : isGuest
+                ? "Running in guest mode. Sign in for full access."
+                : isSystemReady 
+                  ? "Your smart home is secure." 
+                  : !isLoggedIn 
+                    ? "Authentication required." 
+                    : "Cloud connection unreachable."}
           </Text>
         </View>
 
@@ -106,7 +114,7 @@ export default function ModalScreen() {
           <View className="flex-row justify-between items-center">
             <View>
               <Text className="text-white text-lg font-bold">Account</Text>
-              <Text className="text-slate-500 text-sm">{isLoggedIn ? auth.currentUser?.email : "User Authentication"}</Text>
+              <Text className="text-slate-500 text-sm">{isGuest ? 'Guest Mode' : isLoggedIn ? auth.currentUser?.email : "User Authentication"}</Text>
             </View>
             <View className={`px-4 py-1.5 rounded-full border ${isLoggedIn ? 'bg-green-500/10 border-green-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
               <Text className={`font-bold text-xs uppercase tracking-widest ${isLoggedIn ? 'text-green-500' : 'text-red-500'}`}>
