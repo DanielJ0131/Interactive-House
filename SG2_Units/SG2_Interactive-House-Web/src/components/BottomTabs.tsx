@@ -1,7 +1,7 @@
 export default function BottomTabs() {
     return (
         <div>
-            Bottom Tabs
+            Interactive House - Software Engineering 2026
         </div>
     );
 }
