@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, memo, useEffect, useRef } from 'react';
-import { ScrollView, Switch, Text, View, Pressable, Animated, Easing } from 'react-native';
+import { ScrollView, Switch, Text, View, Pressable, Animated, Easing, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { registerHubController } from '../../utils/hubController';
@@ -10,7 +10,7 @@ import deviceConfig from '../../data/devices-config.json';
 const AnimatedFanIcon = memo(({ speed, direction, color }: any) => {
   const rotation = useRef(new Animated.Value(0)).current;
   const isMounted = useRef(true);
-  
+
   // Create a ref to track the numeric value safely for TypeScript
   const rotationTracker = useRef(0);
 
@@ -31,28 +31,28 @@ const AnimatedFanIcon = memo(({ speed, direction, color }: any) => {
     // Smooth stop logic
     if (speed === 0) {
       Animated.timing(rotation, {
-        toValue: startValue + 0.25, 
+        toValue: startValue + 0.25,
         duration: 1200,
         easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web'
       }).start();
       return;
     }
 
     // Running logic: Use rotationTracker.current instead of rotation._value
-    const fullDuration = 500; 
+    const fullDuration = 500;
     const currentPos = startValue % 1;
     const remainingDuration = fullDuration * (1 - currentPos);
 
     Animated.timing(rotation, {
       // Calculate next integer target
-      toValue: Math.floor(rotationTracker.current) + 1, 
+      toValue: Math.floor(rotationTracker.current) + 1,
       duration: Math.max(0, remainingDuration),
       easing: Easing.linear,
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web'
     }).start(({ finished }) => {
       if (finished && isMounted.current && speed > 0) {
-        startAnimation(rotationTracker.current % 1); 
+        startAnimation(rotationTracker.current % 1);
       }
     });
   }, [speed, rotation]);
@@ -91,11 +91,10 @@ const FanControls = memo(({ speed, direction, onSpeedChange, onDirectionToggle }
     <View className="mt-4 pt-4 border-t border-slate-800/40">
       <View className="flex-row justify-between items-center mb-4">
         <Text className="text-slate-500 text-[10px] font-black uppercase tracking-widest">Fan Dynamics</Text>
-        <Pressable 
+        <Pressable
           onPress={onDirectionToggle}
-          className={`flex-row items-center px-3 py-1.5 rounded-full border ${
-            direction ? 'bg-sky-500/20 border-sky-500' : 'bg-slate-800 border-slate-700'
-          }`}
+          className={`flex-row items-center px-3 py-1.5 rounded-full border ${direction ? 'bg-sky-500/20 border-sky-500' : 'bg-slate-800 border-slate-700'
+            }`}
         >
           <MaterialCommunityIcons name="swap-horizontal" size={14} color={direction ? '#38bdf8' : '#94a3b8'} />
           <Text className={`ml-2 text-[10px] font-bold ${direction ? 'text-sky-400' : 'text-slate-400'}`}>
@@ -103,7 +102,7 @@ const FanControls = memo(({ speed, direction, onSpeedChange, onDirectionToggle }
           </Text>
         </Pressable>
       </View>
-      
+
       <View className="flex-row bg-slate-950 p-1.5 rounded-2xl border border-slate-800">
         {speeds.map((s) => (
           <Pressable
@@ -129,19 +128,19 @@ const FanControls = memo(({ speed, direction, onSpeedChange, onDirectionToggle }
 });
 
 // --- SUB-COMPONENT: INDIVIDUAL DEVICE CARD ---
-const ActuatorCard = memo(({ 
-  device, state, sliderValue, direction, onToggle, onSliderChange, onBuzzerPress, onDirectionToggle 
+const ActuatorCard = memo(({
+  device, state, sliderValue, direction, onToggle, onSliderChange, onBuzzerPress, onDirectionToggle
 }: any) => {
   const isBuzzer = device.id === 'buzzer';
   const isYellowLed = device.id === 'led_yellow';
   const isFan = device.id === 'fan';
-  
+
   const brightness = sliderValue || 0;
   const isActive = isFan ? brightness > 0 : (isYellowLed ? brightness > 0 : !!state);
   const glyphOpacity = (isYellowLed || isFan) ? Math.max(0.3, brightness / 100) : 1;
 
   return (
-    <View 
+    <View
       style={{
         borderColor: isActive ? `rgba(14, 165, 233, ${glyphOpacity * 0.4})` : '#1e293b',
         backgroundColor: isActive ? `rgba(14, 165, 233, 0.05)` : 'rgba(15, 23, 42, 0.4)'
@@ -155,10 +154,10 @@ const ActuatorCard = memo(({
             {isFan ? (
               <AnimatedFanIcon speed={brightness} direction={direction} color={brightness > 0 ? '#38bdf8' : '#475569'} />
             ) : (
-              <MaterialCommunityIcons 
-                name={device.icon as any} 
-                size={26} 
-                color={isActive ? (isYellowLed ? `rgba(234, 179, 8, ${glyphOpacity})` : '#38bdf8') : '#475569'} 
+              <MaterialCommunityIcons
+                name={device.icon as any}
+                size={26}
+                color={isActive ? (isYellowLed ? `rgba(234, 179, 8, ${glyphOpacity})` : '#38bdf8') : '#475569'}
               />
             )}
           </View>
@@ -204,7 +203,7 @@ const ActuatorCard = memo(({
             onValueChange={(val) => onSliderChange(device.id, val)}
             minimumTrackTintColor="#eab308"
             maximumTrackTintColor="#1e293b"
-            thumbTintColor="#ffffff" 
+            thumbTintColor="#ffffff"
           />
         </View>
       )}
@@ -222,14 +221,14 @@ export default function DeviceHubScreen() {
   const [deviceStates, setDeviceStates] = useState<{ [key: string]: boolean }>({});
   const [sliderValues, setSliderValues] = useState<{ [key: string]: number }>({});
   const [fanDirections, setFanDirections] = useState<{ [key: string]: boolean }>({});
-  
-  const actuators = useMemo(() => 
-    allDevices.filter(d => ['led_yellow', 'led_white', 'fan', 'relay', 'buzzer', 'servo_door', 'servo_window'].includes(d.id)), 
+
+  const actuators = useMemo(() =>
+    allDevices.filter(d => ['led_yellow', 'led_white', 'fan', 'relay', 'buzzer', 'servo_door', 'servo_window'].includes(d.id)),
     [allDevices]
   );
-  
-  const sensors = useMemo(() => 
-    allDevices.filter(d => ['pir', 'gas', 'photocell', 'soil', 'steam', 'button1', 'button2'].includes(d.id)), 
+
+  const sensors = useMemo(() =>
+    allDevices.filter(d => ['pir', 'gas', 'photocell', 'soil', 'steam', 'button1', 'button2'].includes(d.id)),
     [allDevices]
   );
 
@@ -239,14 +238,14 @@ export default function DeviceHubScreen() {
   const toggleFanDirection = useCallback((id: string) => setFanDirections(p => ({ ...p, [id]: !p[id] })), []);
 
   useEffect(() => {
-  registerHubController({
-    toggleDevice,
-    setSlider: updateSliderValue,
-    buzzerPress: handleBuzzerPress,
-    toggleDirection: toggleFanDirection
-  })
-  }, 
-  [toggleDevice, updateSliderValue, handleBuzzerPress, toggleFanDirection])
+    registerHubController({
+      toggleDevice,
+      setSlider: updateSliderValue,
+      buzzerPress: handleBuzzerPress,
+      toggleDirection: toggleFanDirection
+    })
+  },
+    [toggleDevice, updateSliderValue, handleBuzzerPress, toggleFanDirection])
 
   return (
     <SafeAreaView edges={[]} style={{ flex: 1, backgroundColor: '#020617' }}>
@@ -258,7 +257,7 @@ export default function DeviceHubScreen() {
 
         <Text className="text-sky-500 text-xs font-black uppercase tracking-[2px] mb-4 ml-2">Actuators</Text>
         {actuators.map((device) => (
-          <ActuatorCard 
+          <ActuatorCard
             key={device.id}
             device={device}
             state={deviceStates[device.id]}
