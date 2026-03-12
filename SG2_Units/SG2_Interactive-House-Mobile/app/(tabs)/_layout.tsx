@@ -91,6 +91,7 @@ export default function TabLayout() {
   return (
     <View style={{ flex: 1 }}>
       <Tabs
+        initialRouteName="hub"
         screenOptions={{
           tabBarActiveTintColor: '#0ea5e9',
           tabBarInactiveTintColor: '#64748b',
@@ -145,12 +146,13 @@ export default function TabLayout() {
         }}
       >
         <Tabs.Screen
-          name="home"
+          name="hub"
           options={{
-            title: 'Devices',
-            tabBarIcon: ({ color }) => <MaterialCommunityIcons name="memory" size={26} color={color} />
+            title: 'Hub',
+            tabBarIcon: ({ color }) => <MaterialCommunityIcons name="memory" size={26} color={color} />,
           }}
         />
+
         <Tabs.Screen
           name="ai"
           options={{
@@ -158,20 +160,7 @@ export default function TabLayout() {
             tabBarIcon: ({ color }) => <MaterialCommunityIcons name="robot-industrial" size={26} color={color} />,
           }}
         />
-        <Tabs.Screen
-          name="device_hub"
-          options={{
-            title: 'Hub',
-            tabBarIcon: ({ color }) => <MaterialCommunityIcons name="memory" size={26} color={color} />
-          }}
-        />
-        <Tabs.Screen
-          name="database"
-          options={{
-            title: 'Database',
-            tabBarIcon: ({ color }) => <MaterialCommunityIcons name="database" size={26} color={color} />,
-          }}
-        />
+
         <Tabs.Screen
           name="music"
           options={{
