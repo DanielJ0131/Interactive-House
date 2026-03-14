@@ -46,7 +46,9 @@ function ToggleRow({
             <button
                 type="button"
                 onClick={() => onChange(!value)}
-                className={`h-9 w-16 rounded-full border transition ${value ? "bg-[#0EA5E9] border-[#0EA5E9]" : "bg-white/10 border-white/10"
+                className={`h-9 w-16 rounded-full border transition ${value
+                        ? "bg-[#0EA5E9] border-[#0EA5E9]"
+                        : "bg-white/10 border-white/10"
                     }`}
             >
                 <div
