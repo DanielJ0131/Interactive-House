@@ -10,7 +10,7 @@ export default function TopHeader() {
     const nav = [
         { name: "Hub", icon: House, href: "/hub" },
         { name: "AI", icon: Brain, href: "/ai" },
-        { name: "Speech", icon: Microphone, href: "/voice" },
+        { name: "Music", icon: Microphone, href: "/music" },
         { name: "Database", icon: Database, href: "/database" },
     ];
 
