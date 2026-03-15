@@ -1,37 +1,25 @@
 "use client";
 
-import { Device } from "@/lib/types";
+import { ReactNode } from "react";
 
-export function DeviceCard({
-    device,
-    children,
+export default function DeviceCard({
+    name,
+    pin,
+    icon,
 }: {
-    device: Device;
-    children: React.ReactNode;
+    name: string;
+    pin: string;
+    icon: ReactNode;
 }) {
     return (
-        <div className="rounded-2xl border border-white/10 bg-[#0A122B] p-5 shadow-lg">
-
-            {/* Header */}
-            <div className="flex items-start justify-between gap-3">
-                <div>
-                    <div className="text-lg font-semibold text-white">
-                        {device.name}
-                    </div>
-
-                    <div className="text-xs text-white/50">
-                        Type: {device.type} | Status:{" "}
-                        {device.online ? (
-                            <span className="text-emerald-400">Online</span>
-                        ) : (
-                            <span className="text-red-400">Offline</span>
-                        )}
-                    </div>
-                </div>
+        <div className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-xl backdrop-blur-xl">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/5 border border-white/10">
+                {icon}
             </div>
-
-            {/* Controls */}
-            <div className="mt-4">{children}</div>
+            <div className="mt-4">
+                <p className="text-lg font-semibold">{name}</p>
+                <p className="text-white/35">Pin: {pin}</p>
+            </div>
         </div>
     );
 }
