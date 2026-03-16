@@ -1,6 +1,5 @@
 "use client";
 
-import TopHeader from "@/components/TopHeader";
 import type { ReactNode } from "react";
 import { PageShell } from "@/components/pageShell";
 import {
@@ -89,7 +88,7 @@ export default function GuestHubPage() {
 
   return (
     <>
-      <TopHeader />
+      
 
       <PageShell title="Device Hub" subtitle="Smart Control Interface">
         <div className="space-y-5">
@@ -134,6 +133,13 @@ export default function GuestHubPage() {
             icon={<Waves className="text-[#0EA5E9]" size={22} />}
             value={fan}
           />
+
+          <InfoRow
+            label="Buzzer (Alarm)"
+            sub="O3"
+            icon={<Lightbulb className="text-[#0EA5E9]" size={22} />}
+          />
+
 
           <h2 className="text-sm tracking-[0.35em] text-purple-300 font-semibold">
             SENSORS

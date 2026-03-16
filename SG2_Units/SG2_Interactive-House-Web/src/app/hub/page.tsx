@@ -155,6 +155,7 @@ export default function HubPage() {
     const [windowState, setWindowState] = useState(false);
     const [fanINA, setFanINA] = useState(false);
     const [fanINB, setFanINB] = useState(false);
+    const [buzzer, setBuzzer] = useState(false);
 
 
     const [motion, setMotion] = useState(0);
@@ -188,6 +189,8 @@ export default function HubPage() {
             setWindowState(data.window?.state === "open");
             setFanINA(data.fan_INA?.state === "on");
             setFanINB(data.fan_INB?.state === "on");
+            setOrangeLight(data.orange_light?.state === "on");
+            setBuzzer(data.buzzer?.state === "on");
 
             setMotion(data.telemetry?.motion ?? 0);
             setSteam(data.telemetry?.steam ?? 0);
@@ -256,6 +259,14 @@ export default function HubPage() {
         });
     };
 
+    const toggleBuzzer = async () => {
+        const newState = !buzzer;
+        setBuzzer(newState);
+        await updateDoc(deviceRef, {
+            "buzzer.state": newState ? "on" : "off",
+        });
+    };
+
 
     return (
         <>
@@ -318,6 +329,14 @@ export default function HubPage() {
                         icon={<Wind size={22} />}
                         state={windowState ? "OPEN" : "CLOSED"}
                         onToggle={toggleWindow}
+                    />
+
+                    <DeviceCard
+                        title="Buzzer (Alarm)"
+                        pin="O3"
+                        icon={<Lightbulb className="text-[#0EA5E9]" size={22} />}
+                        state={buzzer ? "ON" : "OFF"}
+                        onToggle={toggleBuzzer}
                     />
 
                 </div>
