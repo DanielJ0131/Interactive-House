@@ -8,7 +8,6 @@ import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { db, auth } from "@/utils/firebaseConfig";
 
-
 import {
     Lightbulb,
     Door,
@@ -20,7 +19,6 @@ import {
     ArrowsClockwise,
 } from "@phosphor-icons/react";
 
-/* --- GLASS-STYLE COMPONENTS --- */
 
 function DeviceCard({
     icon,
@@ -51,17 +49,58 @@ function DeviceCard({
 
             <button
                 onClick={onToggle}
-                className={`px-5 py-2 rounded-full text-xs font-bold transition-all ${
-                    isActive
-                    ? "bg-[#0EA5E9] text-black shadow-lg shadow-[#0EA5E9]/20"
-                    : "bg-white/10 text-white/60"
-                }`}
+                className={`px-5 py-2 rounded-full text-xs font-bold transition-all ${isActive
+                        ? "bg-[#0EA5E9] text-black shadow-lg shadow-[#0EA5E9]/20"
+                        : "bg-white/10 text-white/60"
+                    }`}
             >
                 {state}
             </button>
         </div>
     );
 }
+
+function SliderCard({
+    title,
+    pin,
+    icon,
+    value,
+    onChange,
+}: {
+    title: string;
+    pin: string;
+    icon: React.ReactNode;
+    value: number;
+    onChange: (val: number) => void;
+}) {
+    return (
+        <div className="rounded-3xl bg-white/5 backdrop-blur-md border border-white/10 p-6">
+            <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-4">
+                    <div className="h-12 w-12 rounded-2xl bg-white/10 flex items-center justify-center text-[#FACC15]">
+                        {icon}
+                    </div>
+                    <div>
+                        <p className="text-lg font-semibold text-white">{title}</p>
+                        <p className="text-white/40 text-sm">Pin {pin}</p>
+                    </div>
+                </div>
+                <span className="text-[#0EA5E9] font-mono font-bold bg-[#0EA5E9]/10 px-3 py-1 rounded-lg">
+                    {Math.round((value / 255) * 100)}%
+                </span>
+            </div>
+            <input
+                type="range"
+                min="0"
+                max="255"
+                value={value}
+                onChange={(e) => onChange(parseInt(e.target.value))}
+                className="w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer accent-[#0EA5E9]"
+            />
+        </div>
+    );
+}
+
 
 function SensorCard({ title, value, icon }: { title: string; value: number; icon: React.ReactNode }) {
     return (
@@ -98,39 +137,26 @@ function SyncCard({ source, time }: { source: string; time: string }) {
     );
 }
 
-/* --- MAIN PAGE --- */
-
 export default function HubPage() {
     const router = useRouter();
     const deviceRef = doc(db, "devices", "arduino");
 
     const [username, setUsername] = useState("Home");
 
-    // Actuator States
     const [whiteLight, setWhiteLight] = useState(false);
     const [door, setDoor] = useState(false);
     const [windowState, setWindowState] = useState(false);
     const [fanINA, setFanINA] = useState(false);
     const [fanINB, setFanINB] = useState(false);
+    const [yellowLed, setYellowLed] = useState(0);
     const [bazaar, setBazaar] = useState(false);
 
-    // Sensor States
     const [motion, setMotion] = useState(0);
     const [steam, setSteam] = useState(0);
     const [gas, setGas] = useState(0);
 
     const [syncSource, setSyncSource] = useState("arduino");
     const [syncTime, setSyncTime] = useState("");
-
-    useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (user) => {
-        if (!user) {
-            router.push("/auth/login");
-        }
-    });
-
-    return () => unsub();
-}, []);
 
     useEffect(() => {
         const unsub = onAuthStateChanged(auth, (user) => {
@@ -144,18 +170,16 @@ export default function HubPage() {
         const unsub = onSnapshot(deviceRef, (snap) => {
             const data = snap.data();
             if (!data) return;
-
             setWhiteLight(data.white_light?.state === "on");
             setDoor(data.door?.state === "open");
             setWindowState(data.window?.state === "open");
             setFanINA(data.fan_INA?.state === "on");
             setFanINB(data.fan_INB?.state === "on");
+            setYellowLed(data.yellow_led?.value ?? 0);
             setBazaar(data.bazaar?.state === "on");
-
             setMotion(data.telemetry?.motion ?? 0);
             setSteam(data.telemetry?.steam ?? 0);
             setGas(data.telemetry?.gas ?? 0);
-
             setSyncSource(data.sync?.lastSource ?? "arduino");
             if (data.sync?.lastUpdatedAt?.seconds) {
                 const date = new Date(data.sync.lastUpdatedAt.seconds * 1000);
@@ -165,86 +189,76 @@ export default function HubPage() {
         return () => unsub();
     }, []);
 
+
     const toggleLight = async () => await updateDoc(deviceRef, { "white_light.state": whiteLight ? "off" : "on" });
     const toggleDoor = async () => await updateDoc(deviceRef, { "door.state": door ? "closed" : "open" });
     const toggleWindow = async () => await updateDoc(deviceRef, { "window.state": windowState ? "closed" : "open" });
     const toggleFanINA = async () => await updateDoc(deviceRef, { "fan_INA.state": fanINA ? "off" : "on" });
     const toggleFanINB = async () => await updateDoc(deviceRef, { "fan_INB.state": fanINB ? "off" : "on" });
     const toggleBazaar = async () => await updateDoc(deviceRef, { "bazaar.state": bazaar ? "off" : "on" });
+
+    const handleSliderChange = async (val: number) => {
+        setYellowLed(val);
+        await updateDoc(deviceRef, { "yellow_led.value": val });
+    };
+
     return (
         <main className="min-h-screen bg-transparent">
             <TopHeader />
-
             <PageShell title={`${username}'s Home`} subtitle="Live Hardware Control">
-                
-                <h2 className="text-[10px] tracking-[0.4em] text-[#0EA5E9] font-bold mt-4 mb-6 uppercase">
-                    Actuators
-                </h2>
+
+                <h2 className="text-[10px] tracking-[0.4em] text-[#0EA5E9] font-bold mt-4 mb-6 uppercase">Actuators</h2>
 
                 <div className="space-y-4">
                     <DeviceCard
-                        title="White Light"
-                        pin="13"
-                        icon={<Lightbulb size={24} weight="fill" />}
-                        state={whiteLight ? "ON" : "OFF"}
-                        onToggle={toggleLight}
+                    title="White Light"
+                    pin="13"
+                    icon={<Lightbulb
+                    size={24} weight="fill" />}
+                    state={whiteLight ? "ON" : "OFF"}
+                    onToggle={toggleLight}
                     />
 
                     <DeviceCard
-                        title="Fan INA"
-                        pin="7"
-                        icon={<Fan size={24} weight="fill" />}
-                        state={fanINA ? "ON" : "OFF"}
-                        onToggle={toggleFanINA}
+                    title="Fan INA"
+                    pin="7"
+                    icon={<Fan size={24} weight="fill" />}
+                    state={fanINA ? "ON" : "OFF"}
+                    onToggle={toggleFanINA}
                     />
 
                     <DeviceCard
-                        title="Fan INB"
-                        pin="6"
-                        icon={<Fan size={24} weight="fill" />}
-                        state={fanINB ? "ON" : "OFF"}
-                        onToggle={toggleFanINB}
+                    title="Fan INB"
+                    pin="6"
+                    icon={<Fan size={24} weight="fill" />}
+                    state={fanINB ? "ON" : "OFF"}
+                    onToggle={toggleFanINB}
                     />
 
                     <DeviceCard
-                        title="Door"
-                        pin="9"
-                        icon={<Door size={24} weight="fill" />}
-                        state={door ? "OPEN" : "CLOSED"}
-                        onToggle={toggleDoor}
+                    title="Door" 
+                    pin="9" icon={<Door size={24} weight="fill" />} 
+                    state={door ? "OPEN" : "CLOSED"} 
+                    onToggle={toggleDoor} 
                     />
-
+                    
                     <DeviceCard
-                        title="Window"
-                        pin="10"
-                        icon={<Wind size={24} weight="fill" />}
-                        state={windowState ? "OPEN" : "CLOSED"}
-                        onToggle={toggleWindow}
-                    />
+                    title="Window" pin="10" icon={<Wind size={24} weight="fill" />} state={windowState ? "OPEN" : "CLOSED"} onToggle={toggleWindow} />
 
-                    <DeviceCard
-                        title="Bazaar"
-                        pin="3"
-                        icon={<Cloud size={24} weight="fill" />}
-                        state={bazaar ? "ON" : "OFF"}
-                        onToggle={toggleBazaar}
-                    />
+                    
+                    <SliderCard title="Yellow LED" pin="5" icon={<Lightbulb size={24} weight="fill" />} value={yellowLed} onChange={handleSliderChange} />
+
+                    <DeviceCard title="Bazaar" pin="3" icon={<Cloud size={24} weight="fill" />} state={bazaar ? "ON" : "OFF"} onToggle={toggleBazaar} />
                 </div>
 
-                <h2 className="text-[10px] tracking-[0.4em] text-purple-400 font-bold mt-12 mb-6 uppercase">
-                    Sensors
-                </h2>
-
+                <h2 className="text-[10px] tracking-[0.4em] text-purple-400 font-bold mt-12 mb-6 uppercase">Sensors</h2>
                 <div className="grid grid-cols-2 gap-4">
                     <SensorCard title="Motion" value={motion} icon={<PersonSimpleRun size={22} />} />
                     <SensorCard title="Steam" value={steam} icon={<Cloud size={22} />} />
                     <SensorCard title="Gas" value={gas} icon={<Warning size={22} />} />
                 </div>
 
-                <h2 className="text-[10px] tracking-[0.4em] text-emerald-400 font-bold mt-12 mb-6 uppercase">
-                    Sync Status
-                </h2>
-
+                <h2 className="text-[10px] tracking-[0.4em] text-emerald-400 font-bold mt-12 mb-6 uppercase">Sync Status</h2>
                 <SyncCard source={syncSource} time={syncTime} />
             </PageShell>
         </main>

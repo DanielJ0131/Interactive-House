@@ -13,12 +13,12 @@ export default function TopHeader() {
     const nav = [
         { name: "Hub", icon: House, href: "/hub" },
         { name: "AI", icon: Brain, href: "/ai" },
-        { name: "Speech", icon: Microphone, href: "/voice" },
+        { name: "Music", icon: Microphone, href: "/music" },
     ];
 
     const handleLogout = async () => {
         await signOut(auth);
-        
+
         document.cookie = "auth_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
         window.location.href = "/auth/login";
     };
