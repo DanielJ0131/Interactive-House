@@ -70,7 +70,7 @@ export default function LoginPage() {
           ← Back
         </Link>
 
-        <div className="mt-6 rounded-3xl bg-[#0A122B] border border-white/5 p-8 shadow-2xl">
+        <div className="mt-6 rounded-3xl bg-[#0EA5E9]/20 border border-white/5 p-8 shadow-2xl">
 
           <h1 className="text-3xl font-bold text-center">
             Welcome Back
