@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { PageShell } from "@/components/pageShell";
 import {
   Bell,
+  Cloud,
   DoorOpen,
   Lightbulb,
   Square,
@@ -137,7 +138,7 @@ export default function GuestHubPage() {
           <InfoRow
             label="Buzzer (Alarm)"
             sub="O3"
-            icon={<Lightbulb className="text-[#0EA5E9]" size={22} />}
+            icon={<Cloud className="text-[#0EA5E9]" size={22} />}
           />
 
 

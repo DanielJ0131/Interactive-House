@@ -42,10 +42,9 @@ export default function SignupPage() {
         setLoading(true);
         try {
             const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
-
-            // optional: set displayName
             await updateProfile(cred.user, { displayName: email.split("@")[0] });
 
+            document.cookie = "auth_session=true; path=/; max-age=604800; SameSite=Lax";
             router.push("/hub");
         } catch (err) {
             console.log(err);

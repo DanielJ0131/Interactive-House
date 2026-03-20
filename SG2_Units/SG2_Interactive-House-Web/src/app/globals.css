@@ -1,11 +1,19 @@
 @tailwind base;
-@tailwind components;
+@tailwind border-components;
 @tailwind utilities;
 
 :root {
-  --bg: #0b1220;
-  --text: #e5e7eb;
-  /* gray-200 */
+  /* Main background and text */
+  --bg-color: #f52008;        /* Deep navy/slate */
+  --text-primary: #f8fafc;    /* Off-white */
+  
+  /* Gradient "Orb" Colors */
+  --glow-1: rgba(23, 143, 241, 0.35);  /* Blue glow */
+  --glow-2: rgba(245, 3, 193, 0.25);   /* Pink glow */
+  --glow-3: rgba(244, 240, 3, 0.18);   /* Yellow glow */
+  
+  /* Scrollbar color */
+  --scrollbar-color: rgba(148, 163, 184, 0.35);
 }
 
 html,
@@ -16,12 +24,14 @@ body {
 body {
   min-height: 100%;
   margin: 0;
+  /* Using variables for the gradients and base color */
   background:
-    radial-gradient(1200px circle at 20% 20%, rgba(99, 102, 241, 0.35), transparent 45%),
-    radial-gradient(900px circle at 80% 30%, rgba(236, 72, 153, 0.25), transparent 55%),
-    radial-gradient(1100px circle at 50% 90%, rgba(34, 197, 94, 0.18), transparent 55%),
-    var(--bg);
-  color: var(--text);
+    radial-gradient(1200px circle at 20% 20%, var(--glow-1), transparent 45%),
+    radial-gradient(900px circle at 80% 30%, var(--glow-2), transparent 55%),
+    radial-gradient(1100px circle at 50% 90%, var(--glow-3), transparent 55%),
+    var(--bg-color);
+  
+  color: var(--text-primary);
   font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -33,35 +43,31 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.35);
+  background: var(--scrollbar-color);
   border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.55);
+  /* Slightly brighten the scrollbar on hover */
+  filter: brightness(1.5);
+  background: var(--scrollbar-color);
 }
 
 /* Animations */
 @keyframes floaty {
-
-  0%,
-  100% {
+  0%, 100% {
     transform: translateY(0px);
   }
-
   50% {
     transform: translateY(-10px);
   }
 }
 
 @keyframes glow {
-
-  0%,
-  100% {
+  0%, 100% {
     opacity: 0.55;
     transform: scale(1);
   }
-
   50% {
     opacity: 0.9;
     transform: scale(1.08);
