@@ -9,7 +9,6 @@ import {
   View,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   ActivityIndicator,
   Pressable
 } from 'react-native';
