@@ -636,7 +636,7 @@ useEffect(() => {
       <ScrollView contentContainerStyle={{ padding: 24 }} showsVerticalScrollIndicator={false}>
         <View className="mb-8 mt-4">
           <Text style={{ color: theme.colors.text }} className="text-4xl font-extrabold tracking-tight">
-            {isGuest ? 'Guest Home' : user?.displayName ? `${user.displayName}'s Home` : 'Database'}
+            {isGuest ? 'Guest Home' : user?.displayName ? `${user.displayName}'s Home` : 'My Home'}
           </Text>
           <Text style={{ color: theme.colors.mutedText }} className="text-lg font-medium">
             {isGuest ? 'Demo Hardware Control' : 'Live Hardware Control'}

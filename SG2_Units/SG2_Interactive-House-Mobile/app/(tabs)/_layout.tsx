@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Link, Tabs, useRouter } from 'expo-router';
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Platform, Pressable, View, Alert } from 'react-native';
 import { cssInterop } from 'nativewind';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
