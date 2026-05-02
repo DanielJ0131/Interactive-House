@@ -7,9 +7,8 @@ void SteamSensor::check(int steamValue) {
 
     bool isWet = steamValue > steamThreshold;
 
-    // Trigger ONLY when state changes
-    if (isWet && !wasWet) {
-        notify(steamValue);
+    if (isWet != wasWet) {
+        notify(steamValue); // trigger observers
     }
 
     wasWet = isWet;
