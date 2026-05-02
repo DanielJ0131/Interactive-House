@@ -19,7 +19,6 @@
 // OBJECTS
 LCDManager lcd;
 String buffer = "";
-MusicEngine music;
 
 GasSafety gas;
 SteamSensor steam;

@@ -10,7 +10,7 @@ public:
     void stop();
     void update();
 
-private:
+public:
     static const int MAX = 100;
 
     int melody[MAX];

@@ -1,8 +1,10 @@
 #include <Arduino.h>
 #include "Devices.h"
 #include "../config/config.h"
+#include "../config/config.h"
 
-void initDevices() {
+void initDevices()
+{
     pinMode(13, OUTPUT);
     pinMode(7, OUTPUT);
     pinMode(6, OUTPUT);
@@ -12,12 +14,10 @@ void initDevices() {
 
     doorServo.attach(9);
     windowServo.attach(10);
-    
 }
 
-
-
-void updateDevices() {
+void updateDevices()
+{
 
     digitalWrite(13, whiteLightOn ? HIGH : LOW);
 
@@ -26,11 +26,15 @@ void updateDevices() {
 
     digitalWrite(YELLOW_LED_PIN, yellowLED > 0 ? HIGH : LOW);
 
-    digitalWrite(3, buzzer ? HIGH : LOW);
+    if (buzzer && !music.isPlaying())
+    {
+        tone(3, 1000); // simple beep
+    }
+    else if (!buzzer && !music.isPlaying())
+    {
+        noTone(3);
+    }
 
     doorServo.write(doorOpen ? 150 : 0);
     windowServo.write(windowOpen ? 150 : 0);
 }
-
-
-

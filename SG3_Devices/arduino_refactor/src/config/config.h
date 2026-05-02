@@ -1,9 +1,11 @@
 #pragma once
 #include <Arduino.h>
 #include <Servo.h>
+#include "../music/MusicEngine.h"
 
 // pins
 #define YELLOW_LED_PIN 5
+extern MusicEngine music;
 
 // devices
 extern bool doorOpen;

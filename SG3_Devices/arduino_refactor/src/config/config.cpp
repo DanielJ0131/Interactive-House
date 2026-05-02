@@ -2,6 +2,7 @@
 
 Servo doorServo;
 Servo windowServo;
+MusicEngine music;
 
 bool doorOpen = false;
 bool windowOpen = false;
