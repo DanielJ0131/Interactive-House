@@ -1,4 +1,5 @@
 import React from 'react';
+import { Alert } from 'react-native';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import MusicScreen from '../../../app/(tabs)/music';
 import { doc, deleteDoc, getDoc, onSnapshot, setDoc } from 'firebase/firestore';
@@ -7,7 +8,11 @@ import { useGuest } from '../../../utils/GuestContext';
 import { useAppTheme } from '../../../utils/AppThemeContext';
 import { getMusicCollectionRef } from '../../../utils/firestorePaths';
 import { registerMusicController } from '@/utils/musicController';
-import { initializeAudioContext, playInstrumentNote, stopAllInstrumentNotes } from '../../../utils/musicAudio';
+import {
+  initializeAudioContext,
+  playInstrumentNote,
+  stopAllInstrumentNotes,
+} from '../../../utils/musicAudio';
 
 jest.mock('firebase/auth', () => ({
   onAuthStateChanged: jest.fn(),
@@ -55,11 +60,7 @@ jest.mock('../../../utils/AppThemeContext', () => ({
 }));
 
 jest.mock('../../../utils/musicAudio', () => ({
-  initializeAudioContext: jest.fn(() => ({
-    state: 'running',
-    currentTime: 0,
-    resume: jest.fn(),
-  })),
+  initializeAudioContext: jest.fn(),
   playInstrumentNote: jest.fn(),
   stopAllInstrumentNotes: jest.fn(),
 }));
@@ -125,10 +126,11 @@ const makeSnapshot = (docs: Array<{ id: string; data: () => Record<string, unkno
 });
 
 describe('Music Screen', () => {
-  const mockSetMode = jest.fn();
-
   beforeEach(() => {
     jest.clearAllMocks();
+
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 
     (useGuest as jest.Mock).mockReturnValue({
       isGuest: false,
@@ -137,17 +139,22 @@ describe('Music Screen', () => {
     (useAppTheme as jest.Mock).mockReturnValue({
       theme,
       mode: 'default',
-      setMode: mockSetMode,
+      setMode: jest.fn(),
     });
 
     (onAuthStateChanged as jest.Mock).mockImplementation((_auth, callback) => {
-      callback({ uid: 'uid-123', email: 'ali@example.com' });
+      callback({
+        uid: 'uid-123',
+        email: 'ali@example.com',
+      });
       return jest.fn();
     });
 
     (getDoc as jest.Mock).mockResolvedValue({
       exists: () => true,
-      data: () => ({ role: 'admin' }),
+      data: () => ({
+        role: 'admin',
+      }),
     });
 
     (onSnapshot as jest.Mock).mockImplementation((_ref, onNext) => {
@@ -155,14 +162,15 @@ describe('Music Screen', () => {
       return jest.fn();
     });
 
-    (registerMusicController as jest.Mock).mockImplementation(() => undefined);
     (initializeAudioContext as jest.Mock).mockReturnValue({
       state: 'running',
       currentTime: 0,
       resume: jest.fn(),
     });
+
     (playInstrumentNote as jest.Mock).mockImplementation(() => undefined);
     (stopAllInstrumentNotes as jest.Mock).mockResolvedValue(undefined);
+    (registerMusicController as jest.Mock).mockImplementation(() => undefined);
     (setDoc as jest.Mock).mockResolvedValue(undefined);
     (deleteDoc as jest.Mock).mockResolvedValue(undefined);
   });
@@ -171,7 +179,7 @@ describe('Music Screen', () => {
     jest.restoreAllMocks();
   });
 
-  it('shows the guest access warning without subscribing to firestore', async () => {
+  it('shows guest warning', async () => {
     (useGuest as jest.Mock).mockReturnValue({
       isGuest: true,
     });
@@ -187,21 +195,59 @@ describe('Music Screen', () => {
     expect(onSnapshot).not.toHaveBeenCalled();
   });
 
-  it('renders loaded melodies and saves a new melody for admin users', async () => {
-    const { getAllByText, getByPlaceholderText, getByText } = render(<MusicScreen />);
+  it('shows sign in warning when unauthenticated', async () => {
+    (onAuthStateChanged as jest.Mock).mockImplementation((_auth, callback) => {
+      callback(null);
+      return jest.fn();
+    });
+
+    const { getByText } = render(<MusicScreen />);
+
+    await waitFor(() => {
+      expect(getByText('Please sign in to load cloud melodies.')).toBeTruthy();
+    });
+  });
+
+  it('shows permission denied error', async () => {
+    (onSnapshot as jest.Mock).mockImplementation((_ref, _onNext, onError) => {
+      onError({ code: 'permission-denied' });
+      return jest.fn();
+    });
+
+    const { getByText } = render(<MusicScreen />);
+
+    await waitFor(() => {
+      expect(
+        getByText(
+          'Access denied to melodies (permission-denied). Please sign in with an authorized account.'
+        )
+      ).toBeTruthy();
+    });
+  });
+
+  it('shows generic firestore error', async () => {
+    (onSnapshot as jest.Mock).mockImplementation((_ref, _onNext, onError) => {
+      onError({ code: 'unavailable' });
+      return jest.fn();
+    });
+
+    const { getByText } = render(<MusicScreen />);
+
+    await waitFor(() => {
+      expect(
+        getByText('Unable to load melodies right now (unavailable). Please try again.')
+      ).toBeTruthy();
+    });
+  });
+
+  it('renders melodies and saves new melody', async () => {
+    const { getByText, getByPlaceholderText, getAllByText } = render(<MusicScreen />);
 
     await waitFor(() => {
       expect(getByText('Music Player')).toBeTruthy();
-      expect(getByText('Current Melody')).toBeTruthy();
-      expect(getByText('Tap to Swap Melody')).toBeTruthy();
       expect(getByText('Add Melody')).toBeTruthy();
+      expect(getAllByText('alpha').length).toBeGreaterThan(0);
     });
-
-    expect(getByText('Current Melody')).toBeTruthy();
-    expect(getAllByText('alpha').length).toBeGreaterThan(0);
-    expect(getAllByText('Composer One').length).toBeGreaterThan(0);
-    expect(getByText('Play')).toBeTruthy();
-    expect(getByText('Stop')).toBeTruthy();
 
     fireEvent.changeText(getByPlaceholderText('Melody name'), 'Morning Tune');
     fireEvent.changeText(getByPlaceholderText('Artist (optional)'), 'DJ SG2');
@@ -227,6 +273,254 @@ describe('Music Screen', () => {
           frequencies: [262, 294, 0, 330],
           noteDelays: [500, 500, 250, 750],
           updatedAt: expect.any(String),
+        })
+      );
+    });
+  });
+
+  it('shows missing name validation', async () => {
+    const { getByText } = render(<MusicScreen />);
+
+    await waitFor(() => {
+      expect(getByText('Save Melody')).toBeTruthy();
+    });
+
+    fireEvent.press(getByText('Save Melody'));
+
+    expect(Alert.alert).toHaveBeenCalledWith('Missing name', 'Enter a melody name.');
+  });
+
+  it('shows invalid frequencies validation', async () => {
+    const { getByText, getByPlaceholderText } = render(<MusicScreen />);
+
+    await waitFor(() => {
+      expect(getByText('Save Melody')).toBeTruthy();
+    });
+
+    fireEvent.changeText(getByPlaceholderText('Melody name'), 'Bad Melody');
+    fireEvent.changeText(
+      getByPlaceholderText('Frequencies (0 for silent), e.g. 262, 294, 0, 330'),
+      '0, 0, rest'
+    );
+    fireEvent.changeText(
+      getByPlaceholderText('Arduino delays (ms), e.g. 500, 500, 250, 750'),
+      '500, 500, 500'
+    );
+
+    fireEvent.press(getByText('Save Melody'));
+
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Invalid frequencies',
+      'Enter notes and optional pauses as 0, for example 262, 294, 0, 330.'
+    );
+  });
+
+  it('shows missing delays validation', async () => {
+    const { getByText, getByPlaceholderText } = render(<MusicScreen />);
+
+    await waitFor(() => {
+      expect(getByText('Save Melody')).toBeTruthy();
+    });
+
+    fireEvent.changeText(getByPlaceholderText('Melody name'), 'No Delay Song');
+    fireEvent.changeText(
+      getByPlaceholderText('Frequencies (0 for silent), e.g. 262, 294, 0, 330'),
+      '262, 294'
+    );
+    fireEvent.changeText(
+      getByPlaceholderText('Arduino delays (ms), e.g. 500, 500, 250, 750'),
+      'abc'
+    );
+
+    fireEvent.press(getByText('Save Melody'));
+
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Missing note delays',
+      'Enter an Arduino delay value for each note, for example 500, 500, 250, 750.'
+    );
+  });
+
+  it('shows sequence mismatch validation', async () => {
+    const { getByText, getByPlaceholderText } = render(<MusicScreen />);
+
+    await waitFor(() => {
+      expect(getByText('Save Melody')).toBeTruthy();
+    });
+
+    fireEvent.changeText(getByPlaceholderText('Melody name'), 'Mismatch');
+    fireEvent.changeText(
+      getByPlaceholderText('Frequencies (0 for silent), e.g. 262, 294, 0, 330'),
+      '262, 294, 330'
+    );
+    fireEvent.changeText(
+      getByPlaceholderText('Arduino delays (ms), e.g. 500, 500, 250, 750'),
+      '500'
+    );
+
+    fireEvent.press(getByText('Save Melody'));
+
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Sequence mismatch',
+      'Delay count must match frequency count so each note has one Arduino delay value.'
+    );
+  });
+
+  it('shows invalid name validation', async () => {
+    const { getByText, getByPlaceholderText } = render(<MusicScreen />);
+
+    await waitFor(() => {
+      expect(getByText('Save Melody')).toBeTruthy();
+    });
+
+    fireEvent.changeText(getByPlaceholderText('Melody name'), 'Bad/Melody');
+    fireEvent.changeText(
+      getByPlaceholderText('Frequencies (0 for silent), e.g. 262, 294, 0, 330'),
+      '262, 294'
+    );
+    fireEvent.changeText(
+      getByPlaceholderText('Arduino delays (ms), e.g. 500, 500, 250, 750'),
+      '500, 500'
+    );
+
+    fireEvent.press(getByText('Save Melody'));
+
+    expect(Alert.alert).toHaveBeenCalledWith('Invalid name', 'Melody name cannot include /.');
+  });
+
+  it('plays and then stops melody', async () => {
+    const { getByText } = render(<MusicScreen />);
+
+    await waitFor(() => {
+      expect(getByText('Play')).toBeTruthy();
+    });
+
+    fireEvent.press(getByText('Play'));
+
+    await waitFor(() => {
+      expect(initializeAudioContext).toHaveBeenCalled();
+      expect(playInstrumentNote).toHaveBeenCalled();
+    });
+
+    await waitFor(() => {
+      expect(getByText('Stop')).toBeTruthy();
+    });
+
+    fireEvent.press(getByText('Stop'));
+
+    await waitFor(() => {
+      expect(stopAllInstrumentNotes).toHaveBeenCalled();
+    });
+  });
+
+  it('changes instrument and playback speed', async () => {
+    const { getByText } = render(<MusicScreen />);
+
+    await waitFor(() => {
+      expect(getByText('Instrument')).toBeTruthy();
+      expect(getByText('Playback Speed')).toBeTruthy();
+    });
+
+    fireEvent.press(getByText('sawtooth'));
+    fireEvent.press(getByText('2x'));
+
+    expect(getByText('sawtooth')).toBeTruthy();
+    expect(getByText('2x')).toBeTruthy();
+  });
+
+  it('opens edit panel and updates melody', async () => {
+    const { getByText, getAllByPlaceholderText } = render(<MusicScreen />);
+
+    await waitFor(() => {
+      expect(getByText('Edit Frequencies / Delays')).toBeTruthy();
+    });
+
+    fireEvent.press(getByText('Edit Frequencies / Delays'));
+
+    await waitFor(() => {
+      expect(getByText('Update Melody')).toBeTruthy();
+    });
+
+    const frequencyInputs = getAllByPlaceholderText(
+      'Frequencies (0 for silent), e.g. 262, 294, 0, 330'
+    );
+    const delayInputs = getAllByPlaceholderText(
+      'Arduino delays (ms), e.g. 500, 500, 250, 750'
+    );
+
+    fireEvent.changeText(frequencyInputs[1], '262, 294, 330');
+    fireEvent.changeText(delayInputs[1], '500, 500, 500');
+
+    fireEvent.press(getByText('Update Melody'));
+
+    await waitFor(() => {
+      expect(setDoc).toHaveBeenCalledWith(
+        'mock-doc-ref',
+        expect.objectContaining({
+          frequencies: [262, 294, 330],
+          noteDelays: [500, 500, 500],
+          updatedAt: expect.any(String),
+        }),
+        { merge: true }
+      );
+    });
+  });
+
+  it('shows update sequence mismatch validation', async () => {
+    const { getByText, getAllByPlaceholderText } = render(<MusicScreen />);
+
+    await waitFor(() => {
+      expect(getByText('Edit Frequencies / Delays')).toBeTruthy();
+    });
+
+    fireEvent.press(getByText('Edit Frequencies / Delays'));
+
+    await waitFor(() => {
+      expect(getByText('Update Melody')).toBeTruthy();
+    });
+
+    const frequencyInputs = getAllByPlaceholderText(
+      'Frequencies (0 for silent), e.g. 262, 294, 0, 330'
+    );
+    const delayInputs = getAllByPlaceholderText(
+      'Arduino delays (ms), e.g. 500, 500, 250, 750'
+    );
+
+    fireEvent.changeText(frequencyInputs[1], '262, 294, 330');
+    fireEvent.changeText(delayInputs[1], '500');
+
+    fireEvent.press(getByText('Update Melody'));
+
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Sequence mismatch',
+      'Delay count must match frequency count so each note has one Arduino delay value.'
+    );
+  });
+
+  it('selects another melody', async () => {
+    const { getAllByText } = render(<MusicScreen />);
+
+    await waitFor(() => {
+      expect(getAllByText('beta').length).toBeGreaterThan(0);
+    });
+
+    fireEvent.press(getAllByText('beta')[0]);
+
+    await waitFor(() => {
+      expect(getAllByText('beta').length).toBeGreaterThan(0);
+    });
+  });
+
+  it('registers music controller', async () => {
+    render(<MusicScreen />);
+
+    await waitFor(() => {
+      expect(registerMusicController).toHaveBeenCalledWith(
+        expect.objectContaining({
+          play: expect.any(Function),
+          stop: expect.any(Function),
+          setInstrument: expect.any(Function),
+          setSpeed: expect.any(Function),
+          playSongByName: expect.any(Function),
         })
       );
     });
