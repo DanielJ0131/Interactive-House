@@ -554,7 +554,7 @@ describe('Hub Screen', () => {
     const { getByText } = render(<DatabaseScreen />);
 
     await waitFor(() => {
-      expect(getByText('Database')).toBeTruthy();
+      expect(getByText('My Home')).toBeTruthy();
     });
   });
 

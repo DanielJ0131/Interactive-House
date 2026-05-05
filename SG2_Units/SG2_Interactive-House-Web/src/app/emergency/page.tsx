@@ -146,7 +146,7 @@ export default function EmergencyPage() {
           <h1 className="text-3xl font-bold mb-4">Emergency Call</h1>
 
           <p className="text-lg mb-8">
-            Are you sure you want to place an emergency call to 112?
+            Are you sure you want to place an emergency call?
           </p>
 
           <div className="flex flex-col gap-4">
@@ -174,7 +174,6 @@ export default function EmergencyPage() {
       <div className="w-full max-w-md rounded-2xl bg-red-800 shadow-2xl p-8 text-center">
         <p className="text-sm uppercase tracking-[0.2em] mb-3">Emergency Call</p>
 
-        <h1 className="text-3xl font-bold mb-4">112</h1>
 
         <p className="text-lg mb-3">{status}</p>
 

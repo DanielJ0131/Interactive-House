@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Brain, Microphone, House } from "@phosphor-icons/react";
+import { Brain, Microphone, House, PhoneCall } from "@phosphor-icons/react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/utils/firebaseConfig";
 
@@ -23,6 +23,10 @@ export default function TopHeader() {
         window.location.href = "/auth/login";
     };
 
+    const handleEmergency = () => {
+        router.push("/emergency?from=hub");
+    };
+
 return (
     <header className="w-full border-b border-white/10 bg-[#000000]/50 backdrop-blur-sm">
         <div className="mx-auto max-w-6xl flex items-center justify-between px-6 py-4">
@@ -33,6 +37,21 @@ return (
 
             <div className="flex items-center gap-8">
                 <nav className="flex items-center gap-6">
+                    <button
+                        onClick={handleEmergency}
+                        className="relative group flex items-center gap-2 rounded-full border border-red-400/50 bg-red-500/15 px-4 py-2 text-red-200 shadow-[0_0_18px_rgba(239,68,68,0.25)] transition-all duration-300 hover:scale-105 hover:bg-red-500/25 hover:text-red-100 hover:shadow-[0_0_28px_rgba(239,68,68,0.45)]"
+                    >
+                        <span className="absolute -inset-1 rounded-full bg-red-500/20 blur-md opacity-70 animate-pulse"></span>
+
+                        <span className="relative flex items-center justify-center">
+                            <PhoneCall size={18} weight="fill" />
+                        </span>
+
+                        <span className="relative text-xs font-black tracking-[0.16em] uppercase">
+                            Emergency
+                        </span>
+                    </button>
+
                     {nav.map((item) => {
                         const Icon = item.icon;
                         const active = pathname === item.href;
