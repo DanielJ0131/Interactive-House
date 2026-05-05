@@ -29,7 +29,8 @@ DoorDevice doorDev;
 WindowDevice windowDev;
 
 // SETUP
-void setup() {
+void setup()
+{
     Serial.begin(9600);
 
     initDevices();
@@ -44,53 +45,62 @@ void setup() {
 }
 
 // LOOP
-void loop() {
+void loop()
+{
     music.update();
 
-    // SERIAL COMMANDS
-    while (Serial.available()) {
+    // SERIAL
+    while (Serial.available())
+    {
         char c = Serial.read();
 
-        if (c == '\n') {
+        if (c == '\n')
+        {
             handleCommand(buffer);
             buffer = "";
-        } else {
+        }
+        else
+        {
             buffer += c;
         }
     }
 
-    // READ SENSORS
+
     SensorData s = readSensors();
 
-    // SEND SENSOR DATA
-    Serial.print("S:");
-    Serial.print(s.gas); Serial.print(",");
-    Serial.print(s.light); Serial.print(",");
-    Serial.print(s.soil); Serial.print(",");
-    Serial.print(s.steam); Serial.print(",");
-    Serial.println(s.motion);
-
-    // OBSERVER LOGIC
+    // OBSERVER
     gas.check(s.gas);
     steam.check(s.steam);
 
-    // APPLY DEVICE STATES
+    // DEVICES
     updateDevices();
 
-    // SEND DEVICE STATE TO GATEWAY
+    // SEND SENSOR DATA
+    Serial.print("S:");
+    Serial.print(s.gas);
+    Serial.print(",");
+    Serial.print(s.light);
+    Serial.print(",");
+    Serial.print(s.soil);
+    Serial.print(",");
+    Serial.print(s.steam);
+    Serial.print(",");
+    Serial.println(s.motion);
+
+    // SEND STATE
     Serial.print("STATE:");
-    Serial.print("door="); Serial.print(doorOpen ? 1 : 0);
-    Serial.print(",window="); Serial.print(windowOpen ? 1 : 0);
-    Serial.print(",fanINA="); Serial.print(fanINA ? 1 : 0);
-    Serial.print(",fanINB="); Serial.print(fanINB ? 1 : 0);
-    Serial.print(",light="); Serial.print(whiteLightOn ? 1 : 0);
-    Serial.print(",buzzer="); Serial.print(buzzer ? 1 : 0);
+    Serial.print("door="); Serial.print(doorOpen);
+    Serial.print(",window="); Serial.print(windowOpen);
+    Serial.print(",fanINA="); Serial.print(fanINA);
+    Serial.print(",fanINB="); Serial.print(fanINB);
+    Serial.print(",light="); Serial.print(whiteLightOn);
+    Serial.print(",buzzer="); Serial.print(buzzer);
     Serial.print(",yellowLED="); Serial.print(yellowLED);
     Serial.println();
 
     // LCD
     lcd.show(
-        "G:" + String(s.gas) + " YL:" + String(s.light),
+        "G:" + String(s.gas) + " L:" + String(s.light),
         "S:" + String(s.steam) + " M:" + String(s.motion)
     );
 

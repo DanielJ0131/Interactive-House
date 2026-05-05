@@ -1,7 +1,7 @@
 const admin = require("firebase-admin");
 const { SerialPort } = require("serialport");
 
-// FIREBASE
+// ================= FIREBASE =================
 const serviceAccount = require("./serviceAccountKey.json");
 
 admin.initializeApp({
@@ -10,32 +10,22 @@ admin.initializeApp({
 
 const db = admin.firestore();
 
-// SERIAL
+// ================= SERIAL =================
 const port = new SerialPort({
     path: "COM3", // change if needed
     baudRate: 9600,
 });
 
-// BUFFER
+// ================= BUFFER =================
 let buffer = "";
 
-// COMMAND CACHE
+// ================= COMMAND CACHE =================
 let lastCommands = {};
 
-// HELPERS
+// ================= HELPERS =================
 function normalize(v) {
     if (v === undefined || v === null) return null;
     return String(v).toLowerCase().trim();
-}
-
-function getState(data, key) {
-    if (data[key]?.state !== undefined) {
-        return normalize(data[key].state);
-    }
-    if (data[`${key}.state`] !== undefined) {
-        return normalize(data[`${key}.state`]);
-    }
-    return null;
 }
 
 function send(cmd, type) {
@@ -44,12 +34,12 @@ function send(cmd, type) {
     if (lastCommands[type] === cmd) return;
 
     lastCommands[type] = cmd;
-
     port.write(cmd + "\n");
+
     console.log("→", cmd);
 }
 
-// COMMAND MAPPING
+// ================= FIREBASE → ARDUINO =================
 function sendCommand(type, state) {
     state = normalize(state);
     if (state === null) return;
@@ -80,81 +70,149 @@ function sendCommand(type, state) {
         case "white_light":
             cmd = state === "on" ? "W:1" : "W:0";
             break;
-        
-        case "yellow_light":
-            cmd = state === "on" ? "L:1" : "L:0";
-            break;
     }
 
     send(cmd, type);
 }
 
-// FIRESTORE LISTENER
+// ================= FIRESTORE LISTENER =================
 db.collection("devices")
     .doc("arduino")
     .onSnapshot((doc) => {
         const data = doc.data();
         if (!data) return;
 
-        console.log("Firestore update");
+        console.log("🔥 Firestore update");
 
-        sendCommand("door", getState(data, "door"));
-        sendCommand("window", getState(data, "window"));
-        sendCommand("buzzer", getState(data, "buzzer"));
-        sendCommand("fan_INA", getState(data, "fan_INA"));
-        sendCommand("fan_INB", getState(data, "fan_INB"));
-        sendCommand("white_light", getState(data, "white_light"));
-        if (data.yellow_led?.value !== undefined) {
-    const value = Math.max(0, Math.min(255, data.yellow_led.value));
+        sendCommand("door", data?.door?.state);
+        sendCommand("window", data?.window?.state);
+        sendCommand("buzzer", data?.buzzer?.state);
+        sendCommand("fan_INA", data?.fan_INA?.state);
+        sendCommand("fan_INB", data?.fan_INB?.state);
+        sendCommand("white_light", data?.white_light?.state);
 
-    port.write(`YL:${value}\n`);
-    console.log("→ YL:", value);
-}
+        // ✅ Yellow LED (value-based)
+        if (data?.yellow_led?.value !== undefined) {
+            const value = Math.max(0, Math.min(255, data.yellow_led.value));
+            send(`YL:${value}`, "yellow_led");
+        }
     });
 
-// SERIAL RECEIVE
+// ================= SERIAL → FIREBASE =================
 port.on("data", async (data) => {
-    const msg = data.toString().trim();
+    buffer += data.toString();
 
-    if (!msg.startsWith("STATE:")) return;
+    // wait until full line received
+    if (!buffer.includes("\n")) return;
 
-    const raw = msg.substring(6).split(",");
+    const lines = buffer.split("\n");
+    buffer = lines.pop(); // keep unfinished part
 
-    let updates = {};
+    for (const raw of lines) {
+        const msg = raw.trim();
+        if (!msg) continue;
 
-    raw.forEach(pair => {
-        const [key, value] = pair.split("=");
+        console.log("RAW:", msg);
 
-        if (key === "door") {
-            updates["door.state"] = value === "1" ? "open" : "close";
+        // ================= SENSOR DATA =================
+        if (msg.startsWith("S:")) {
+            const parts = msg.substring(2).split(",");
+
+            if (parts.length < 5) {
+                console.log("⚠️ Bad sensor data:", msg);
+                continue;
+            }
+
+            const sensorData = {
+                gas: Number(parts[0]),
+                light: Number(parts[1]),
+                soil: Number(parts[2]),
+                steam: Number(parts[3]),
+                motion: Number(parts[4]),
+            };
+
+            console.log("📡 Sensors:", sensorData);
+
+            await db.collection("devices").doc("arduino").set(
+                {
+                    telemetry: sensorData,
+                },
+                { merge: true }
+            );
         }
-        else if (key === "window") {
-            updates["window.state"] = value === "1" ? "open" : "close";
-        }
-        else if (key === "fanINA") {
-            updates["fan_INA.state"] = value === "1" ? "on" : "off";
-        }
-        else if (key === "fanINB") {
-            updates["fan_INB.state"] = value === "1" ? "on" : "off";
-        }
-        else if (key === "light") {
-            updates["white_light.state"] = value === "1" ? "on" : "off";
-        }
-        else if (key === "buzzer") {
-            updates["buzzer.state"] = value === "1" ? "on" : "off";
-        }
-        else if (key === "yellowLED") {
-            updates["yellow_led.value"] = parseInt(value);
-        }
-    });
 
-    console.log("State updated:", updates);
+        // ================= DEVICE STATE =================
+        if (msg.startsWith("STATE:")) {
+            const parts = msg.substring(6).split(",");
 
-    await db.collection("devices").doc("arduino").set(updates, { merge: true });
+            let updates = {};
 
+            parts.forEach((p) => {
+                const [key, value] = p.split("=");
+                if (!key) return;
+
+                switch (key) {
+                    case "door":
+                        updates.door = {
+                            state: value === "1" ? "open" : "closed",
+                        };
+                        break;
+
+                    case "window":
+                        updates.window = {
+                            state: value === "1" ? "open" : "closed",
+                        };
+                        break;
+
+                    case "fanINA":
+                        updates.fan_INA = {
+                            state: value === "1" ? "on" : "off",
+                        };
+                        break;
+
+                    case "fanINB":
+                        updates.fan_INB = {
+                            state: value === "1" ? "on" : "off",
+                        };
+                        break;
+
+                    case "light":
+                        updates.white_light = {
+                            state: value === "1" ? "on" : "off",
+                        };
+                        break;
+
+                    case "buzzer":
+                        updates.buzzer = {
+                            state: value === "1" ? "on" : "off",
+                        };
+                        break;
+
+                    case "yellowLED":
+                        updates.yellow_led = {
+                            value: Number(value),
+                        };
+                        break;
+                }
+            });
+
+            console.log("✅ State updated:", updates);
+
+            await db.collection("devices").doc("arduino").set(updates, {
+                merge: true,
+            });
+        }
+    }
 });
 
-port.on("open", () => console.log("Serial connected"));
-port.on("error", (err) => console.error("Serial error:", err.message));
+// ================= SERIAL EVENTS =================
+port.on("open", () => {
+    console.log("✅ Serial connected");
+});
 
-console.log("Gateway running...");
+port.on("error", (err) => {
+    console.error("❌ Serial error:", err.message);
+});
+
+// ================= START =================
+console.log("🔥 Firestore Gateway Running...");
