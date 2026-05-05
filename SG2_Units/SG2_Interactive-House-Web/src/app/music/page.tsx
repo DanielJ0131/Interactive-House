@@ -108,7 +108,7 @@ export default function MusicPage() {
                                 key={label}
                                 onClick={() => setCurrentSpeed(value)}
                                 className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all ${currentSpeed === value
-                                        ? 'bg-white text-black shadow-lg scale-105'
+                                        ? 'bg-[var(--color-accent)] text-black shadow-lg scale-105'
                                         : 'text-white/40 hover:text-white/70'
                                     }`}
                             >
@@ -156,7 +156,7 @@ export default function MusicPage() {
                             <button
                                 onClick={() => activeSongId === song.id ? stopMusic() : playMusic(song.id, song.frequencies)}
                                 className={`flex items-center gap-2 px-8 py-3 rounded-full text-xs font-black tracking-widest transition-all active:scale-95 ${activeSongId === song.id
-                                            ? "bg-red-500 text-white shadow-lg shadow-red-500/20"
+                                            ? "bg-[var(--color-danger)] text-white shadow-lg shadow-[var(--color-danger-glow)"
                                             : "bg-[var(--color-accent)] text-black shadow-lg hover:scale-105"
                                     }`}
                             >

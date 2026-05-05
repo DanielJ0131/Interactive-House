@@ -90,7 +90,7 @@ function SliderCard({
         <div className="rounded-3xl bg-white/5 backdrop-blur-md border border-white/10 p-6 shadow-xl">
             <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-2xl bg-white/10 flex items-center justify-center text-[#FACC15]">
+                    <div className="h-12 w-12 rounded-2xl bg-white/10 flex items-center justify-center text-[var(--color-warning)]">
                         {icon}
                     </div>
                     <div>
@@ -275,7 +275,7 @@ export default function HubPage() {
                                 onClick={toggleFan}
                                 disabled={fanLoading}
                                 className={`px-4 py-2 rounded-full text-xs font-black tracking-widest transition-all ${fanState !== 'off'
-                                        ? "bg-[#0EA5E9] text-black shadow-lg shadow-[#0EA5E9]/30 scale-105"
+                                        ? "bg-[var(--color-accent)] text-black shadow-lg shadow-[var(--color-accent-glow)] scale-105"
                                         : "bg-white/10 text-white/40 hover:bg-white/20"
                                     } ${fanLoading ? "opacity-50 cursor-not-allowed" : ""}`}
                             >
@@ -284,7 +284,7 @@ export default function HubPage() {
                             <button
                                 onClick={toggleReverse}
                                 disabled={fanLoading}
-                                className={`px-4 py-2 rounded-full text-xs font-black tracking-widest transition-all bg-purple-500 text-white hover:bg-purple-600 ${fanLoading ? "opacity-50 cursor-not-allowed" : ""}`}
+                                className={`px-4 py-2 rounded-full text-xs font-black tracking-widest transition-all bg-[var(--color-secondary-accent)] text-white hover:opacity-90 ${fanLoading ? "opacity-50 cursor-not-allowed" : ""}`}
                             >
                                 {fanLoading ? "..." : "REVERSE"}
                             </button>
@@ -298,7 +298,7 @@ export default function HubPage() {
                     <DeviceCard title="Buzzer" pin="3" icon={mdiCloud} state={buzzer ? "ON" : "OFF"} onToggle={toggleBuzzer} />
                 </div>
 
-                <h2 className="text-[10px] tracking-[0.4em] text-purple-400 font-black mt-12 mb-6 uppercase opacity-80">
+                <h2 className="text-[10px] tracking-[0.4em] text-[var(--color-secondary-accent)] font-black mt-12 mb-6 uppercase opacity-80">
                     Sensors
                 </h2>
 
@@ -310,7 +310,7 @@ export default function HubPage() {
 
                 <div className="mt-12 rounded-3xl bg-white/5 border border-white/10 p-6">
                     <div className="flex items-center gap-3 mb-4">
-                        <Icon path={mdiRefresh} size={1.375} className="text-emerald-400" />
+                        <Icon path={mdiRefresh} size={1.375} className="text-[var(--color-accent)]" />
                         <p className="text-sm font-bold text-white tracking-widest uppercase">System Sync</p>
                     </div>
                     <div className="grid grid-cols-2 gap-4 text-xs">
