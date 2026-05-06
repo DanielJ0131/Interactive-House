@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { Platform } from 'react-native';
 import WelcomeScreen, { withTimeout } from '../../../app/index';
 import { onAuthStateChanged } from 'firebase/auth';
 
@@ -126,6 +127,27 @@ describe('WelcomeScreen', () => {
     fireEvent.press(getByText('Get Started'));
 
     expect(mockPush).toHaveBeenCalledWith('/(auth)/login');
+  });
+
+  it('blurs web target before navigation', async () => {
+    const originalOS = Platform.OS;
+    Object.defineProperty(Platform, 'OS', { configurable: true, value: 'web' });
+
+    const blurSpy = jest.fn();
+    const { getByText } = render(<WelcomeScreen />);
+
+    await waitFor(() => {
+      expect(getByText('Get Started')).toBeTruthy();
+    });
+
+    fireEvent.press(getByText('Get Started'), {
+      currentTarget: { blur: blurSpy },
+    });
+
+    expect(blurSpy).toHaveBeenCalled();
+    expect(mockPush).toHaveBeenCalledWith('/(auth)/login');
+
+    Object.defineProperty(Platform, 'OS', { configurable: true, value: originalOS });
   });
 
   it('sets guest mode and redirects when Explore as Guest is pressed', async () => {

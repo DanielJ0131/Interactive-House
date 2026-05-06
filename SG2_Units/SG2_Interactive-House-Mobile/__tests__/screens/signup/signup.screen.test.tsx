@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor, RenderResult } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor, RenderResult } from '@testing-library/react-native';
 import SignupScreen from '../../../app/(auth)/signup';
 import { createUserWithEmailAndPassword, deleteUser, updateProfile, Auth } from 'firebase/auth';
 import { useRouter } from 'expo-router';
@@ -153,6 +153,25 @@ describe('Signup Screen', () => {
 
     expect(nameInput.props.value).toBe('John Doe');
     expect(emailInput.props.value).toBe('john@example.com');
+  });
+
+  it('toggles password visibility for both password fields', () => {
+    const { getByTestId, getAllByPlaceholderText } = render(<SignupScreen />);
+
+    const [passwordInput, confirmInput] = getAllByPlaceholderText('••••••••');
+
+    expect(passwordInput.props.secureTextEntry).toBe(true);
+    expect(confirmInput.props.secureTextEntry).toBe(true);
+
+    fireEvent.press(getByTestId('password-visibility-toggle'));
+
+    const [passwordAfter] = getAllByPlaceholderText('••••••••');
+    expect(passwordAfter.props.secureTextEntry).toBe(false);
+
+    fireEvent.press(getByTestId('confirm-password-visibility-toggle'));
+
+    const [, confirmAfter] = getAllByPlaceholderText('••••••••');
+    expect(confirmAfter.props.secureTextEntry).toBe(false);
   });
 
   // ── Name Validation ──────────────────────────────────────────────────────
@@ -384,6 +403,37 @@ describe('Signup Screen', () => {
     // ActivityIndicator should appear during loading
   });
 
+  it('shows timeout error when signup request exceeds limit', async () => {
+    jest.useFakeTimers();
+    (createUserWithEmailAndPassword as jest.Mock).mockReturnValue(
+      new Promise(() => {})
+    );
+
+    const { getByText, getByPlaceholderText, getAllByPlaceholderText } = render(<SignupScreen />);
+
+    const nameInput = getByPlaceholderText('Name Example');
+    const emailInput = getByPlaceholderText('name@example.com');
+    const passwordInputs = getAllByPlaceholderText('••••••••');
+
+    fireEvent.changeText(nameInput, 'John Doe');
+    fireEvent.changeText(emailInput, 'new@example.com');
+    fireEvent.changeText(passwordInputs[0], 'password123');
+    fireEvent.changeText(passwordInputs[1], 'password123');
+
+    const signupButton = screen.getAllByText('Create Account')[1];
+    fireEvent.press(signupButton);
+
+    await act(async () => {
+      jest.advanceTimersByTime(8000);
+    });
+
+    await waitFor(() => {
+      expect(getByText('Request timed out. Please check your connection and try again.')).toBeTruthy();
+    });
+
+    jest.useRealTimers();
+  });
+
   // ── Successful Signup Flow ────────────────────────────────────────────
 
   it('trims whitespace from name and email', async () => {
@@ -462,6 +512,13 @@ describe('Signup Screen', () => {
   });
 
   it('navigates to hub after successful signup', async () => {
+    const alertSpy = jest.spyOn(require('react-native').Alert, 'alert').mockImplementation(
+      (_title: string, _message: string, buttons?: Array<{ text: string; onPress?: () => void }>) => {
+        const ok = buttons?.find((button) => button.text === 'OK');
+        ok?.onPress?.();
+      }
+    );
+
     const { getByText, getByPlaceholderText, getAllByPlaceholderText } = render(<SignupScreen />);
 
     const nameInput = getByPlaceholderText('Name Example');
@@ -476,7 +533,11 @@ describe('Signup Screen', () => {
     const signupButton = screen.getAllByText('Create Account')[1];
     fireEvent.press(signupButton);
 
-    // After alert is confirmed, should navigate to hub
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/(tabs)/hub');
+    });
+
+    alertSpy.mockRestore();
   });
 
   // ── Error Display & Recovery ────────────────────────────────────────────

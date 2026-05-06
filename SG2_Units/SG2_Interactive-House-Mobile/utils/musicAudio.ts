@@ -473,3 +473,17 @@ export const stopAllInstrumentNotes = async ({
   oscillatorsRef.current = [];
   gainsRef.current = [];
 };
+
+export const __testOnly = {
+  base64EncodeBytes,
+  clamp,
+  getWaveSample,
+  createWavDataUri,
+  getNativeToneUri,
+  setExpoAvModulePromise: (promise: Promise<ExpoAvModuleLike | null>) => {
+    expoAvModulePromise = promise;
+  },
+  resetExpoAvModulePromise: () => {
+    expoAvModulePromise = null;
+  },
+};

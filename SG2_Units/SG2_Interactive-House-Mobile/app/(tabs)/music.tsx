@@ -990,6 +990,7 @@ useEffect(() => {
 
       {isAdmin && (
         <Pressable
+          testID={`delete-melody-${item.id}`}
           onPress={(event) => {
             event.stopPropagation();
             handleDeleteMelody(item);
