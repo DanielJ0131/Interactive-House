@@ -1,6 +1,6 @@
 import React from 'react';
 import { Alert, Platform } from 'react-native';
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import MusicScreen from '../../../app/(tabs)/music';
 import { doc, deleteDoc, getDoc, onSnapshot, setDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -130,6 +130,7 @@ describe('Music Screen', () => {
     jest.clearAllMocks();
 
     jest.spyOn(console, 'error').mockImplementation(() => {});
+    jest.spyOn(console, 'log').mockImplementation(() => {});
     jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 
     (useGuest as jest.Mock).mockReturnValue({
@@ -795,5 +796,89 @@ describe('Music Screen', () => {
         })
       );
     });
+  });
+
+  it('selects a song via playSongByName when matched', async () => {
+    render(<MusicScreen />);
+
+    await waitFor(() => {
+      expect(registerMusicController).toHaveBeenCalled();
+    });
+
+    const calls = (registerMusicController as jest.Mock).mock.calls;
+    const controller = calls[calls.length - 1][0];
+    (stopAllInstrumentNotes as jest.Mock).mockClear();
+
+    controller.playSongByName('beta');
+
+    await waitFor(() => {
+      expect(stopAllInstrumentNotes).toHaveBeenCalled();
+    });
+  });
+
+  it('does nothing when playSongByName does not match', async () => {
+    render(<MusicScreen />);
+
+    await waitFor(() => {
+      expect(registerMusicController).toHaveBeenCalled();
+    });
+
+    const calls = (registerMusicController as jest.Mock).mock.calls;
+    const controller = calls[calls.length - 1][0];
+    (stopAllInstrumentNotes as jest.Mock).mockClear();
+
+    controller.playSongByName('nonexistent song');
+
+    expect(stopAllInstrumentNotes).not.toHaveBeenCalled();
+  });
+
+  it('marks melody off after playback finishes', async () => {
+    jest.useFakeTimers();
+    (onSnapshot as jest.Mock).mockImplementation((_ref, onNext) => {
+      onNext(
+        makeSnapshot([
+          {
+            id: 'single',
+            data: () => ({
+              artist: 'One Note',
+              frequencies: { 0: 262 },
+              noteDelays: { 0: 0 },
+              state: 'on',
+            }),
+          },
+        ])
+      );
+      return jest.fn();
+    });
+
+    const { getByText } = render(<MusicScreen />);
+
+    await waitFor(() => {
+      expect(getByText('Play')).toBeTruthy();
+    });
+
+    fireEvent.press(getByText('Play'));
+
+    await waitFor(() => {
+      expect(setDoc).toHaveBeenCalledWith(
+        'mock-doc-ref',
+        expect.objectContaining({ state: 'on' }),
+        { merge: true }
+      );
+    });
+
+    await act(async () => {
+      jest.runOnlyPendingTimers();
+    });
+
+    await waitFor(() => {
+      expect(setDoc).toHaveBeenCalledWith(
+        'mock-doc-ref',
+        expect.objectContaining({ state: 'off' }),
+        { merge: true }
+      );
+    });
+
+    jest.useRealTimers();
   });
 });
