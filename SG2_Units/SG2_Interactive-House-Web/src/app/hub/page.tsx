@@ -7,30 +7,12 @@ import Link from "next/link";
 import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { db, auth } from "@/utils/firebaseConfig";
-
+import { useSpeechContext } from '../context/SpeechContext';    
 import TopHeader from "@/components/TopHeader";
 import { PageShell } from "@/components/pageShell";
 import Icon from '@mdi/react';
 import { mdiLightbulb, mdiDoor, mdiWeatherWindy, mdiFan, mdiRun, mdiCloud, mdiAlert, mdiRefresh, mdiMicrophone, mdiChevronRight } from '@mdi/js';
 
-function VoiceTile() {
-    return (
-        <Link href="/voice" className="block group mb-8">
-            <div className="rounded-3xl bg-white/5 backdrop-blur-md border border-white/10 p-5 flex items-center justify-between hover:bg-white/10 transition-all border-l-4 border-l-[var(--color-accent)] shadow-xl">
-                <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-2xl bg-[var(--color-accent-soft)] flex items-center justify-center text-[var(--color-accent)] group-hover:scale-110 transition-transform">
-                        <Icon path={mdiMicrophone} size={1.75} />
-                    </div>
-                    <div>
-                        <p className="text-lg font-semibold text-white">Voice Control</p>
-                        <p className="text-white/40 text-[10px] tracking-[0.2em] uppercase font-bold">Open Assistant</p>
-                    </div>
-                </div>
-                <Icon path={mdiChevronRight} size={1.25} className="text-white/20 group-hover:text-white group-hover:translate-x-1 transition-all" />
-            </div>
-        </Link>
-    );
-}
 
 function DeviceCard({
     icon,
@@ -151,6 +133,53 @@ export default function HubPage() {
 
     const [syncSource, setSyncSource] = useState("arduino");
     const [syncTime, setSyncTime] = useState("");
+    
+    //for speech
+    const {transcript} = useSpeechContext();
+
+   useEffect(() =>{
+    if  (!transcript) return;
+
+
+    const text = transcript.toLowerCase();
+
+    if ((text.includes("on light") || text.includes("light on")) && !whiteLight){
+        toggleLight();}
+
+    if ((text.includes("off light") || text.includes("light off")) && whiteLight){
+        toggleLight();}
+
+if ((text.includes("open door")) && !door){
+        toggleDoor();}
+
+if ((text.includes("close door")) && door){
+        toggleDoor();}
+
+    if ((text.includes("open window")) && !windowState){
+        toggleWindow();}
+
+    if  ((text.includes("close window")) && windowState){
+        toggleWindow();}
+
+    if  ((text.includes("turn on buzzer") || text.includes("buzzer on")) && !buzzer){
+        toggleBuzzer();}
+
+    if ((text.includes("turn off buzzer") || text.includes("buzzer off")) && buzzer){
+        toggleBuzzer();}
+
+    if ((text.includes("on fan") || text.includes("fan on")) && fanState === "off"){
+    toggleFan();}
+
+    if ((text.includes("off fan") || text.includes("fan off")) && fanState !== "off"){
+    toggleFan();}
+
+    if (
+      (text.includes("reverse") || text.includes("switch fan direction")) &&
+          fanState !== "off"){
+    toggleReverse();
+
+    
+}}, [transcript, whiteLight, door, windowState, buzzer, fanState, fanLoading]);
 
     // Auth & Data Listeners
     useEffect(() => {
@@ -252,7 +281,7 @@ export default function HubPage() {
 
 <PageShell title={`${username}'s Hub`} subtitle="Control Center">
 
-                <VoiceTile />
+                {/* <VoiceTile /> */}
 
                 <h2 className="text-[10px] tracking-[0.4em] text-[var(--color-accent)] font-black mt-4 mb-6 uppercase opacity-80">
                     Actuators
