@@ -1,4 +1,5 @@
 import type { RefObject } from 'react';
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 interface NativeSoundLike {
@@ -64,6 +65,7 @@ interface StopInstrumentNotesParams {
 
 const isWeb = Platform.OS === 'web';
 const isAndroid = Platform.OS === 'android';
+const isExpoGo = Constants.appOwnership === 'expo';
 
 let expoAvModulePromise: Promise<ExpoAvModuleLike | null> | null = null;
 
@@ -209,7 +211,7 @@ const playNativeInstrumentNote = async (
   frequency: number,
   noteLength: number
 ) => {
-  if (!isAndroid) return;
+  if (!isAndroid || isExpoGo) return;
   if (frequency <= 0) return;
 
   const expoAv = await loadExpoAvModule();
