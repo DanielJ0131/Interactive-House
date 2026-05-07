@@ -124,12 +124,13 @@ export default function HubPage() {
     const [windowState, setWindowState] = useState(false);
     const [fanState, setFanState] = useState<'off' | 'forward' | 'reverse'>('off');
     const [fanLoading, setFanLoading] = useState(false);
-    const [yellowLed, setYellowLed] = useState(0);
+    const [orange_light, setOrangeLight] = useState(0);
     const [buzzer, setBuzzer] = useState(false);
 
     const [motion, setMotion] = useState(0);
     const [steam, setSteam] = useState(0);
     const [gas, setGas] = useState(0);
+    const [soil, setSoil] = useState(0);
 
     const [syncSource, setSyncSource] = useState("arduino");
     const [syncTime, setSyncTime] = useState("");
@@ -196,19 +197,23 @@ if ((text.includes("close door")) && door){
             if (!data) return;
 
             setWhiteLight(data.white_light?.state === "on");
-            setDoor(data.door?.state === "open");
-            setWindowState(data.window?.state === "open");
+            const doorState = String(data.door?.state ?? "").toLowerCase();
+            const windowStateValue = String(data.window?.state ?? "").toLowerCase();
+
+            setDoor(doorState === "open");
+            setWindowState(windowStateValue === "open");
             const fanINAOn = data.fan_INA?.state === "on";
             const fanINBOn = data.fan_INB?.state === "on";
             if (fanINAOn && !fanINBOn) setFanState('forward');
             else if (!fanINAOn && fanINBOn) setFanState('reverse');
             else setFanState('off');
-            setYellowLed(data.yellow_led?.value ?? 0);
+            setOrangeLight(data.orange_light?.value ?? 0);
             setBuzzer(data.buzzer?.state === "on");
 
             setMotion(data.telemetry?.motion ?? 0);
             setSteam(data.telemetry?.steam ?? 0);
             setGas(data.telemetry?.gas ?? 0);
+            setSoil(data.telemetry?.soil ?? 0);
 
             setSyncSource(data.sync?.lastSource ?? "arduino");
             if (data.sync?.lastUpdatedAt?.seconds) {
@@ -270,9 +275,9 @@ if ((text.includes("close door")) && door){
     };
     const toggleBuzzer = async () => await updateDoc(deviceRef, { "buzzer.state": buzzer ? "off" : "on" });
 
-    const handleYellowLedChange = async (val: number) => {
-        setYellowLed(val);
-        await updateDoc(deviceRef, { "yellow_led.value": val });
+    const handleOrangeLightChange = async (val: number) => {
+        setOrangeLight(val);
+        await updateDoc(deviceRef, { "orange_light.value": val });
     };
 
     return (
@@ -322,7 +327,7 @@ if ((text.includes("close door")) && door){
                     <DeviceCard title="Door" pin="9" icon={mdiDoor} state={door ? "OPEN" : "CLOSED"} onToggle={toggleDoor} />
                     <DeviceCard title="Window" pin="10" icon={mdiWeatherWindy} state={windowState ? "OPEN" : "CLOSED"} onToggle={toggleWindow} />
 
-                    <SliderCard title="Yellow LED" pin="5" icon={<Icon path={mdiLightbulb} size={1.5} />} value={yellowLed} onChange={handleYellowLedChange} />
+                    <SliderCard title="Orange Light" pin="5" icon={<Icon path={mdiLightbulb} size={1.5} />} value={orange_light} onChange={handleOrangeLightChange} />
 
                     <DeviceCard title="Buzzer" pin="3" icon={mdiCloud} state={buzzer ? "ON" : "OFF"} onToggle={toggleBuzzer} />
                 </div>
@@ -335,6 +340,8 @@ if ((text.includes("close door")) && door){
                     <SensorCard title="Motion" value={motion} icon={<Icon path={mdiRun} size={1.375} />} />
                     <SensorCard title="Steam" value={steam} icon={<Icon path={mdiCloud} size={1.375} />} />
                     <SensorCard title="Gas" value={gas} icon={<Icon path={mdiAlert} size={1.375} />} />
+                    <SensorCard title="Soil" value={soil} icon={<Icon path={mdiCloud} size={1.375} />} unit="%" />
+
                 </div>
 
                 <div className="mt-12 rounded-3xl bg-white/5 border border-white/10 p-6">
