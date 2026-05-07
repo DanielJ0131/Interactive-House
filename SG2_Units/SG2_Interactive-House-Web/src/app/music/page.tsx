@@ -26,7 +26,16 @@ const SPEED_MULTIPLIERS = {
     FAST: 0.5,
 };
 
-
+const PIANO_NOTES = [
+    { label: "C", freq: 262 },
+    { label: "D", freq: 294 },
+    { label: "E", freq: 330 },
+    { label: "F", freq: 349 },
+    { label: "G", freq: 392 },
+    { label: "A", freq: 440 },
+    { label: "B", freq: 494 },
+    { label: "C", freq: 523 },
+];
 
 export default function MusicPage() {
     const [songs, setSongs] = useState<Song[]>([]);
@@ -34,66 +43,72 @@ export default function MusicPage() {
     const [speedMultiplier, setSpeedMultiplier] = useState<number>(SPEED_MULTIPLIERS.NORMAL);
     const audioCtxRef = useRef<AudioContext | null>(null);
     const speedMultiplierRef = useRef(SPEED_MULTIPLIERS.NORMAL);
+    const [activeFrequency, setActiveFrequency] = useState<number | null>(null);
 
     const stopMusic = () => {
         if (audioCtxRef.current) {
             audioCtxRef.current.close();
             audioCtxRef.current = null;
             setActiveSongId(null);
+            setActiveFrequency(null);
         }
-        
     };
 
     const playMusic = async (
         songId: string,
         frequencies: number[],
         noteDelays: number[],
-        ) => {
-    stopMusic();
+    ) => {
+        stopMusic();
 
-    const WinAudioContext = (window as unknown as {
-        AudioContext: typeof AudioContext;
-        webkitAudioContext: typeof AudioContext
-    });
+        const WinAudioContext = (window as unknown as {
+            AudioContext: typeof AudioContext;
+            webkitAudioContext: typeof AudioContext
+        });
 
-    const SelectedContext = WinAudioContext.AudioContext || WinAudioContext.webkitAudioContext;
-    const audioCtx = new SelectedContext();
-    
-    audioCtxRef.current = audioCtx;
-    setActiveSongId(songId);
+        const SelectedContext = WinAudioContext.AudioContext || WinAudioContext.webkitAudioContext;
+        const audioCtx = new SelectedContext();
 
-    for (let i = 0; i < frequencies.length; i++) {
-    if (!audioCtxRef.current) break;
+        audioCtxRef.current = audioCtx;
+        setActiveSongId(songId);
 
-    const freq = frequencies[i];
-    const baseDelay = noteDelays[i] ?? 300;
-    const delay = baseDelay * speedMultiplierRef.current;
+        for (let i = 0; i < frequencies.length; i++) {
+            if (!audioCtxRef.current) break;
 
-    if (freq > 0) {
-        const oscillator = audioCtx.createOscillator();
-        const gainNode = audioCtx.createGain();
+            const freq = frequencies[i];
+            setActiveFrequency(freq);
 
-        oscillator.type = "sine";
-        oscillator.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            const baseDelay = noteDelays[i] ?? 300;
+            const delay = baseDelay * speedMultiplierRef.current;
 
-        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(
-            0.0001,
-            audioCtx.currentTime + delay / 1000
-        );
+            if (freq > 0) {
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
 
-        oscillator.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
+                oscillator.type = "sine";
+                oscillator.frequency.setValueAtTime(freq, audioCtx.currentTime);
 
-        oscillator.start();
-        oscillator.stop(audioCtx.currentTime + delay / 1000);
-    }
+                gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(
+                    0.0001,
+                    audioCtx.currentTime + delay / 1000
+                );
 
-    await new Promise(resolve => setTimeout(resolve, delay));
-}
-    
-    if (audioCtxRef.current === audioCtx) setActiveSongId(null);
-};
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + delay / 1000);
+            }
+
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+
+        if (audioCtxRef.current === audioCtx) {
+            setActiveSongId(null);
+            setActiveFrequency(null);
+        }
+    };
 
     useEffect(() => {
         const fetchMusic = async () => {
@@ -140,6 +155,50 @@ export default function MusicPage() {
                         ))}
                     </div>
                 </div>
+
+                <div className="mb-10 rounded-3xl bg-white/5 border border-white/10 p-5 shadow-xl backdrop-blur-md max-w-md mx-auto">
+    <div className="flex items-center justify-between mb-4">
+        <h3 className="text-white font-black text-sm">
+            Current Melody
+        </h3>
+
+        <span className="px-3 py-1 rounded-full bg-[var(--color-accent-soft)] text-[var(--color-accent)] text-[9px] font-black uppercase">
+            {activeSongId ? "ON" : "OFF"}
+        </span>
+    </div>
+
+    <div className="rounded-2xl bg-black/30 p-4 border border-white/5">
+        <div className="flex items-center justify-between mb-4">
+            <p className="text-white/70 text-[9px] font-black uppercase tracking-[0.2em]">
+                Mini Piano
+            </p>
+            <p className="text-white/40 text-[9px] font-black uppercase tracking-[0.2em]">
+                Playing Now
+            </p>
+        </div>
+
+        <div className="flex gap-1 justify-center items-start">
+            {PIANO_NOTES.map((note, index) => (
+                <div
+                    key={`${note.label}-${index}`}
+                    className={`relative w-9 h-24 rounded-b-lg border border-white/10 transition-all flex items-end justify-center pb-2 text-xs font-black ${
+                        activeFrequency === note.freq
+                            ? "bg-[var(--color-accent)] text-black scale-105 shadow-lg"
+                            : "bg-white text-black/60"
+                    }`}
+                >
+                    {["C", "D", "F", "G", "A"].includes(note.label) && (
+                        <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-5 h-12 bg-black rounded-b-md text-white flex items-end justify-center pb-1 text-[9px]">
+                            {note.label}
+                        </div>
+                    )}
+
+                    {note.label}
+                </div>
+            ))}
+        </div>
+    </div>
+</div>
 
                 <h2 className="text-[10px] tracking-[0.4em] text-[var(--color-accent)] font-black mb-6 uppercase opacity-80 flex items-center gap-2">
                     <MusicNotes size={16} weight="fill" />
