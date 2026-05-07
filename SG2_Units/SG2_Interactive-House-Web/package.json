@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "jest"
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "test:coverage:view": "jest --coverage && start coverage/lcov-report/index.html"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
