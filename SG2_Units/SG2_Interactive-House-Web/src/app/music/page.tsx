@@ -17,6 +17,7 @@ interface Song {
     name: string;
     artist: string;
     frequencies: number[];
+    noteDelays: number[];
 }
 
 const SPEEDS = {
@@ -35,11 +36,16 @@ export default function MusicPage() {
         if (audioCtxRef.current) {
             audioCtxRef.current.close();
             audioCtxRef.current = null;
+            setActiveSongId(null);
         }
-        setActiveSongId(null);
+        
     };
 
-    const playMusic = async (songId: string, frequencies: number[]) => {
+    const playMusic = async (
+        songId: string,
+        frequencies: number[],
+        noteDelays: number[],
+        ) => {
     stopMusic();
 
     const WinAudioContext = (window as unknown as {
@@ -53,24 +59,34 @@ export default function MusicPage() {
     audioCtxRef.current = audioCtx;
     setActiveSongId(songId);
 
-    for (const freq of frequencies) {
-        if (!audioCtxRef.current) break;
-        
-        if (freq > 0) {
-            const oscillator = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
-            oscillator.type = "sine";
-            oscillator.frequency.setValueAtTime(freq, audioCtx.currentTime);
-            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.2);
-            oscillator.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-            oscillator.start();
-            oscillator.stop(audioCtx.currentTime + 0.2);
-        }
-        
-        await new Promise(resolve => setTimeout(resolve, currentSpeed));
+    for (let i = 0; i < frequencies.length; i++) {
+    if (!audioCtxRef.current) break;
+
+    const freq = frequencies[i];
+    const delay = noteDelays[i] ?? currentSpeed;
+
+    if (freq > 0) {
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+
+        oscillator.type = "sine";
+        oscillator.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(
+            0.0001,
+            audioCtx.currentTime + delay / 1000
+        );
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        oscillator.start();
+        oscillator.stop(audioCtx.currentTime + delay / 1000);
     }
+
+    await new Promise(resolve => setTimeout(resolve, delay));
+}
     
     if (audioCtxRef.current === audioCtx) setActiveSongId(null);
 };
@@ -154,9 +170,9 @@ export default function MusicPage() {
 
                             {/* ACTION BUTTON */}
                             <button
-                                onClick={() => activeSongId === song.id ? stopMusic() : playMusic(song.id, song.frequencies)}
+                                onClick={() => activeSongId === song.id ? stopMusic() : playMusic(song.id, song.frequencies, song.noteDelays)}
                                 className={`flex items-center gap-2 px-8 py-3 rounded-full text-xs font-black tracking-widest transition-all active:scale-95 ${activeSongId === song.id
-                                            ? "bg-[var(--color-danger)] text-white shadow-lg shadow-[var(--color-danger-glow)"
+                                            ? "bg-[var(--color-danger)] text-white shadow-lg shadow-[var(--color-danger-glow)]"
                                             : "bg-[var(--color-accent)] text-black shadow-lg hover:scale-105"
                                     }`}
                             >
