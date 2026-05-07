@@ -20,17 +20,20 @@ interface Song {
     noteDelays: number[];
 }
 
-const SPEEDS = {
-    SLOW: 500,
-    NORMAL: 300,
-    FAST: 150,
+const SPEED_MULTIPLIERS = {
+    SLOW: 1.5,
+    NORMAL: 1,
+    FAST: 0.5,
 };
+
+
 
 export default function MusicPage() {
     const [songs, setSongs] = useState<Song[]>([]);
     const [activeSongId, setActiveSongId] = useState<string | null>(null);
-    const [currentSpeed, setCurrentSpeed] = useState<number>(SPEEDS.NORMAL);
+    const [speedMultiplier, setSpeedMultiplier] = useState<number>(SPEED_MULTIPLIERS.NORMAL);
     const audioCtxRef = useRef<AudioContext | null>(null);
+    const speedMultiplierRef = useRef(SPEED_MULTIPLIERS.NORMAL);
 
     const stopMusic = () => {
         if (audioCtxRef.current) {
@@ -63,7 +66,8 @@ export default function MusicPage() {
     if (!audioCtxRef.current) break;
 
     const freq = frequencies[i];
-    const delay = noteDelays[i] ?? currentSpeed;
+    const baseDelay = noteDelays[i] ?? 300;
+    const delay = baseDelay * speedMultiplierRef.current;
 
     if (freq > 0) {
         const oscillator = audioCtx.createOscillator();
@@ -119,11 +123,14 @@ export default function MusicPage() {
 
                     {/* SPEED SELECTOR - HUB STYLE */}
                     <div className="flex bg-black/20 p-1.5 rounded-2xl border border-white/5 backdrop-blur-lg">
-                        {Object.entries(SPEEDS).map(([label, value]) => (
+                        {Object.entries(SPEED_MULTIPLIERS).map(([label, value]) => (
                             <button
                                 key={label}
-                                onClick={() => setCurrentSpeed(value)}
-                                className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all ${currentSpeed === value
+                                onClick={() => {
+                                    setSpeedMultiplier(value);
+                                    speedMultiplierRef.current = value;
+                                }}
+                                className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all ${speedMultiplier === value
                                         ? 'bg-[var(--color-accent)] text-black shadow-lg scale-105'
                                         : 'text-white/40 hover:text-white/70'
                                     }`}
