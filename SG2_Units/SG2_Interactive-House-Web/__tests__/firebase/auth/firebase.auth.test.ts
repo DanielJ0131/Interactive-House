@@ -2,31 +2,43 @@
  * @jest-environment node
  */
 
-import { describe, expect, it } from "@jest/globals";
+import { describe, expect, it, beforeEach } from "@jest/globals";
+
+jest.mock("firebase/app", () => ({
+  initializeApp: jest.fn(() => ({ __mocked: true })),
+  getApps: jest.fn(() => []),
+  getApp: jest.fn(() => ({ __mocked: true })),
+}));
+
+jest.mock("firebase/auth", () => ({
+  getAuth: jest.fn(() => ({ __mockAuth: true })),
+}));
+
+jest.mock("firebase/firestore", () => ({
+  getFirestore: jest.fn(() => ({ __mockDb: true })),
+}));
+
+jest.mock("firebase/ai", () => ({
+  getAI: jest.fn(() => ({ __mockAi: true })),
+  getGenerativeModel: jest.fn(() => ({ __mockModel: true })),
+  GoogleAIBackend: jest.fn(function() {
+    this.name = "GoogleAIBackend";
+  }),
+}));
 
 describe("Firebase Auth Config", () => {
-  it("should be configured from environment", () => {
-    expect(process.env.NEXT_PUBLIC_FIREBASE_API_KEY !== undefined).toBe(
-      process.env.NEXT_PUBLIC_FIREBASE_API_KEY !== undefined
-    );
+  beforeEach(() => {
+    jest.clearAllMocks();
   });
 
-  it("should export auth and db modules from firebaseConfig", async () => {
-    jest.doMock("@/utils/firebaseConfig", () => ({
-      auth: { __mockAuth: true },
-      db: { __mockDb: true },
-    }));
-
+  it("loads auth and db exports successfully", async () => {
     const config = await import("@/utils/firebaseConfig");
-    expect(config.auth).toBeDefined();
-    expect(config.db).toBeDefined();
+    expect(config.auth).toBeTruthy();
+    expect(config.db).toBeTruthy();
   });
 
-  it("handles missing environment variables gracefully", () => {
-    const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-    const authDomain = process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN;
-
-    expect(typeof apiKey === "string" || apiKey === undefined).toBe(true);
-    expect(typeof authDomain === "string" || authDomain === undefined).toBe(true);
+  it("exports valid app instance", async () => {
+    const config = await import("@/utils/firebaseConfig");
+    expect(config.default).toBeDefined();
   });
 });
