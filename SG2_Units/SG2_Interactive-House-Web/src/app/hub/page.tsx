@@ -131,6 +131,7 @@ export default function HubPage() {
     const [steam, setSteam] = useState(0);
     const [gas, setGas] = useState(0);
     const [soil, setSoil] = useState(0);
+    const [light, setLight] = useState(0);
 
     const [syncSource, setSyncSource] = useState("arduino");
     const [syncTime, setSyncTime] = useState("");
@@ -214,6 +215,7 @@ if ((text.includes("close door")) && door){
             setSteam(data.telemetry?.steam ?? 0);
             setGas(data.telemetry?.gas ?? 0);
             setSoil(data.telemetry?.soil ?? 0);
+            setLight(data.telemetry?.light ?? 0);
 
             setSyncSource(data.sync?.lastSource ?? "arduino");
             if (data.sync?.lastUpdatedAt?.seconds) {
@@ -341,6 +343,7 @@ if ((text.includes("close door")) && door){
                     <SensorCard title="Steam" value={steam} icon={<Icon path={mdiCloud} size={1.375} />} />
                     <SensorCard title="Gas" value={gas} icon={<Icon path={mdiAlert} size={1.375} />} />
                     <SensorCard title="Soil" value={soil} icon={<Icon path={mdiCloud} size={1.375} />} unit="%" />
+                    <SensorCard title="Light" value={light} icon={<Icon path={mdiAlert} size={1.375} />} />
 
                 </div>
 
