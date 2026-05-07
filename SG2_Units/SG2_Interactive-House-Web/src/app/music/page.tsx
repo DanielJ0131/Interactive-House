@@ -35,6 +35,14 @@ const PIANO_NOTES = [
     { label: "A", freq: 440 },
     { label: "B", freq: 494 },
     { label: "C", freq: 523 },
+    { label: "D", freq: 587 },
+    { label: "E", freq: 659 },
+    { label: "F", freq: 698 },
+    { label: "G", freq: 784 },
+    { label: "A", freq: 880 },
+    { label: "B", freq: 988 },
+    { label: "C", freq: 1047 },
+    { label: "D", freq: 1175 },
 ];
 
 export default function MusicPage() {
@@ -156,49 +164,52 @@ export default function MusicPage() {
                     </div>
                 </div>
 
-                <div className="mb-10 rounded-3xl bg-white/5 border border-white/10 p-5 shadow-xl backdrop-blur-md max-w-md mx-auto">
-    <div className="flex items-center justify-between mb-4">
-        <h3 className="text-white font-black text-sm">
-            Current Melody
-        </h3>
+                <div className="mb-10 rounded-3xl bg-white/5 border border-white/10 p-5 shadow-xl backdrop-blur-md w-full">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-white font-black text-sm">
+                            Current Melody
+                        </h3>
 
-        <span className="px-3 py-1 rounded-full bg-[var(--color-accent-soft)] text-[var(--color-accent)] text-[9px] font-black uppercase">
-            {activeSongId ? "ON" : "OFF"}
-        </span>
-    </div>
+                        <span className="px-3 py-1 rounded-full bg-[var(--color-accent-soft)] text-[var(--color-accent)] text-[9px] font-black uppercase">
+                            {activeSongId ? "ON" : "OFF"}
+                        </span>
+                    </div>
 
-    <div className="rounded-2xl bg-black/30 p-4 border border-white/5">
-        <div className="flex items-center justify-between mb-4">
-            <p className="text-white/70 text-[9px] font-black uppercase tracking-[0.2em]">
-                Mini Piano
-            </p>
-            <p className="text-white/40 text-[9px] font-black uppercase tracking-[0.2em]">
-                Playing Now
-            </p>
-        </div>
-
-        <div className="flex gap-1 justify-center items-start">
-            {PIANO_NOTES.map((note, index) => (
-                <div
-                    key={`${note.label}-${index}`}
-                    className={`relative w-9 h-24 rounded-b-lg border border-white/10 transition-all flex items-end justify-center pb-2 text-xs font-black ${
-                        activeFrequency === note.freq
-                            ? "bg-[var(--color-accent)] text-black scale-105 shadow-lg"
-                            : "bg-white text-black/60"
-                    }`}
-                >
-                    {["C", "D", "F", "G", "A"].includes(note.label) && (
-                        <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-5 h-12 bg-black rounded-b-md text-white flex items-end justify-center pb-1 text-[9px]">
-                            {note.label}
+                    <div className="rounded-2xl bg-black/30 p-4 border border-white/5">
+                        <div className="flex items-center justify-between mb-4">
+                            <p className="text-white/70 text-[9px] font-black uppercase tracking-[0.2em]">
+                                Mini Piano
+                            </p>
+                            <p className="text-white/40 text-[9px] font-black uppercase tracking-[0.2em]">
+                                Playing Now
+                            </p>
                         </div>
-                    )}
 
-                    {note.label}
+                        <div
+                            className="grid gap-1"
+                            style={{ gridTemplateColumns: "repeat(16, minmax(0, 1fr))" }}
+                        >
+                            {PIANO_NOTES.map((note, index) => (
+                                <div
+                                    key={`${note.label}-${index}`}
+                                    className={`relative h-28 rounded-b-lg border border-white/10 transition-all flex items-end justify-center pb-2 text-xs font-black ${
+                                        activeFrequency === note.freq
+                                            ? "bg-[var(--color-accent)] text-black scale-105 shadow-lg"
+                                            : "bg-white text-black/60"
+                                    }`}
+                                >
+                                    {["C", "D", "F", "G", "A"].includes(note.label) && (
+                                        <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-5 h-14 bg-black rounded-b-md text-white flex items-end justify-center pb-1 text-[9px]">
+                                            {note.label}
+                                        </div>
+                                    )}
+
+                                    {note.label}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
                 </div>
-            ))}
-        </div>
-    </div>
-</div>
 
                 <h2 className="text-[10px] tracking-[0.4em] text-[var(--color-accent)] font-black mb-6 uppercase opacity-80 flex items-center gap-2">
                     <MusicNotes size={16} weight="fill" />
