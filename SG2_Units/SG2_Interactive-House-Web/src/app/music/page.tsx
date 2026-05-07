@@ -119,14 +119,28 @@ export default function MusicPage() {
     };
 
     useEffect(() => {
-        const fetchMusic = async () => {
-            const querySnapshot = await getDocs(collection(db, "music"));
-            const musicData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Song[];
-            setSongs(musicData);
-        };
-        fetchMusic();
-        return () => stopMusic();
+    const fetchMusic = async () => {
+        const querySnapshot = await getDocs(collection(db, "music"));
+        const musicData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Song[];
+        setSongs(musicData);
+    };
+
+    fetchMusic();
+
+    return () => stopMusic();
     }, []);
+
+    const getClosestPianoNote = (frequency: number | null) => {
+        if (frequency === null) return null;
+
+        return PIANO_NOTES.reduce((closest, note) => {
+           return Math.abs(note.freq - frequency) < Math.abs(closest.freq - frequency)
+              ? note
+              : closest;
+        });
+};
+
+const closestPianoNote = getClosestPianoNote(activeFrequency);
 
     return (
         <main className="min-h-screen bg-transparent">
@@ -193,7 +207,7 @@ export default function MusicPage() {
                                 <div
                                     key={`${note.label}-${index}`}
                                     className={`relative h-28 rounded-b-lg border border-white/10 transition-all flex items-end justify-center pb-2 text-xs font-black ${
-                                        activeFrequency === note.freq
+                                        closestPianoNote?.freq === note.freq
                                             ? "bg-[var(--color-accent)] text-black shadow-lg"
                                             : "bg-white text-black/60"
                                     }`}
