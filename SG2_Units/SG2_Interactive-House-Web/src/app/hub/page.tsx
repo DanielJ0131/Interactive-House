@@ -124,7 +124,7 @@ export default function HubPage() {
     const [windowState, setWindowState] = useState(false);
     const [fanState, setFanState] = useState<'off' | 'forward' | 'reverse'>('off');
     const [fanLoading, setFanLoading] = useState(false);
-    const [yellowLed, setYellowLed] = useState(0);
+    const [orangeLed, setOrangeLed] = useState(0);
     const [buzzer, setBuzzer] = useState(false);
 
     const [motion, setMotion] = useState(0);
@@ -203,7 +203,7 @@ if ((text.includes("close door")) && door){
             if (fanINAOn && !fanINBOn) setFanState('forward');
             else if (!fanINAOn && fanINBOn) setFanState('reverse');
             else setFanState('off');
-            setYellowLed(data.yellow_led?.value ?? 0);
+            setOrangeLed(data.orange_led?.value ?? 0);
             setBuzzer(data.buzzer?.state === "on");
 
             setMotion(data.telemetry?.motion ?? 0);
@@ -270,9 +270,9 @@ if ((text.includes("close door")) && door){
     };
     const toggleBuzzer = async () => await updateDoc(deviceRef, { "buzzer.state": buzzer ? "off" : "on" });
 
-    const handleYellowLedChange = async (val: number) => {
-        setYellowLed(val);
-        await updateDoc(deviceRef, { "yellow_led.value": val });
+    const handleOrangeLedChange = async (val: number) => {
+        setOrangeLed(val);
+        await updateDoc(deviceRef, { "orange_led.value": val });
     };
 
     return (
@@ -322,7 +322,7 @@ if ((text.includes("close door")) && door){
                     <DeviceCard title="Door" pin="9" icon={mdiDoor} state={door ? "OPEN" : "CLOSED"} onToggle={toggleDoor} />
                     <DeviceCard title="Window" pin="10" icon={mdiWeatherWindy} state={windowState ? "OPEN" : "CLOSED"} onToggle={toggleWindow} />
 
-                    <SliderCard title="Yellow LED" pin="5" icon={<Icon path={mdiLightbulb} size={1.5} />} value={yellowLed} onChange={handleYellowLedChange} />
+                    <SliderCard title="Orange LED" pin="5" icon={<Icon path={mdiLightbulb} size={1.5} />} value={orangeLed} onChange={handleOrangeLedChange} />
 
                     <DeviceCard title="Buzzer" pin="3" icon={mdiCloud} state={buzzer ? "ON" : "OFF"} onToggle={toggleBuzzer} />
                 </div>
