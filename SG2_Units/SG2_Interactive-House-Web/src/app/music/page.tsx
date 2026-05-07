@@ -194,15 +194,19 @@ export default function MusicPage() {
                                     key={`${note.label}-${index}`}
                                     className={`relative h-28 rounded-b-lg border border-white/10 transition-all flex items-end justify-center pb-2 text-xs font-black ${
                                         activeFrequency === note.freq
-                                            ? "bg-[var(--color-accent)] text-black scale-105 shadow-lg"
+                                            ? "bg-[var(--color-accent)] text-black shadow-lg"
                                             : "bg-white text-black/60"
                                     }`}
-                                >
-                                    {["C", "D", "F", "G", "A"].includes(note.label) && (
-                                        <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-5 h-14 bg-black rounded-b-md text-white flex items-end justify-center pb-1 text-[9px]">
-                                            {note.label}
-                                        </div>
-                                    )}
+                                 >
+                                {["C", "D", "F", "G", "A"].includes(note.label) && index !== PIANO_NOTES.length - 1 && (
+                                    <div className={`absolute -top-1 right-[-12px] z-10 w-5 h-14 rounded-b-md shadow-lg transition-all ${
+                                        activeFrequency !== null &&
+                                        activeFrequency > note.freq &&
+                                        activeFrequency < PIANO_NOTES[index + 1].freq
+                                        ? "bg-[var(--color-accent)] brightness-110": "bg-black" }`}
+                                    
+                                    />
+                                )}
 
                                     {note.label}
                                 </div>
