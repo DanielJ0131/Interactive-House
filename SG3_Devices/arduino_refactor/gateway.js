@@ -655,3 +655,15 @@ port.on("error", (err) => {
 
 // START GATEWAY
 console.log(" Firestore Gateway Running...");
+
+module.exports = { 
+    normalize, 
+    normalizeBoolean, 
+    toNumber, 
+    clampInt, 
+    parseNotes, 
+    serializeNotes,
+    getFirestoreCommandState,
+    getMusicState,
+    hasChanges
+};
