@@ -23,7 +23,7 @@ void updateDevices()
     digitalWrite(7, fanINA ? HIGH : LOW);
     digitalWrite(6, fanINB ? HIGH : LOW);
 
-    digitalWrite(YELLOW_LED_PIN, yellowLED > 0 ? HIGH : LOW);
+    analogWrite(ORANGE_LIGHT_PIN, orangeLight);
 
     if (buzzer && !music.isPlaying())
     {

@@ -95,7 +95,7 @@ void loop()
     Serial.print(",fanINB="); Serial.print(fanINB);
     Serial.print(",light="); Serial.print(whiteLightOn);
     Serial.print(",buzzer="); Serial.print(buzzer);
-    Serial.print(",yellowLED="); Serial.print(yellowLED);
+    Serial.print(",orange_light="); Serial.print(orangeLight);
     Serial.println();
 
     // LCD
@@ -111,7 +111,7 @@ if (doorOpen)           activeStates += "Door:Open ";
 if (windowOpen)         activeStates += "Win:Open ";
 if (fanINA || fanINB)   activeStates += "Fan:ON ";
 if (whiteLightOn)       activeStates += "W.Light:ON ";
-if (yellowLED)          activeStates += "Y.LED:ON ";
+activeStates += "O.Light:" + String(orangeLight) + " ";
 if (buzzer)             activeStates += "BUZZER!! ";
 
 

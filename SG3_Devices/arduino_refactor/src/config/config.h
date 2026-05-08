@@ -3,10 +3,10 @@
 #include <Servo.h>
 #include "../music/MusicEngine.h"
 
-const int GAS_THRESHOLD = 300;
+const int GAS_THRESHOLD = 10;
 
 // pins
-#define YELLOW_LED_PIN 5
+#define ORANGE_LIGHT_PIN 5
 extern MusicEngine music;
 
 // devices
@@ -17,7 +17,7 @@ extern bool fanINB;
 extern bool whiteLightOn;
 extern bool buzzer;
 
-extern int yellowLED;
+extern int orangeLight;
 
 // gas
 extern const int gasThreshold;

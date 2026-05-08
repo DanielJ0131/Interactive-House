@@ -49,7 +49,7 @@ function getFirestoreCommandState(data) {
         fan_INA: data?.fan_INA?.state,
         fan_INB: data?.fan_INB?.state,
         white_light: data?.white_light?.state,
-        yellow_led: data?.yellow_led?.value,
+        orange_light: data?.orange_light?.value,
     };
 }
 
@@ -122,10 +122,10 @@ db.collection("devices")
         sendCommand("fan_INB", data?.fan_INB?.state);
         sendCommand("white_light", data?.white_light?.state);
 
-        // Yellow LED (value-based)
-        if (data?.yellow_led?.value !== undefined) {
-            const value = Math.max(0, Math.min(255, data.yellow_led.value));
-            send(`YL:${value}`, "yellow_led");
+        // Orange light (value-based)
+        if (data?.orange_light?.value !== undefined) {
+            const value = Math.max(0, Math.min(255, data.orange_light.value));
+            send(`YL:${value}`, "orange_light");
         }
     });
 
@@ -239,10 +239,10 @@ port.on("data", async (data) => {
                         break;
                     }
 
-                    case "yellowLED": {
+                    case "orange_light": {
                         const nextValue = Number(value);
-                        if (getDeviceFieldValue("yellow_led", lastDeviceState) !== nextValue) {
-                            updates.yellow_led = { value: nextValue };
+                        if (getDeviceFieldValue("orange_light", lastDeviceState) !== nextValue) {
+                            updates.orange_light = { value: nextValue };
                             changed = true;
                         }
                         break;
