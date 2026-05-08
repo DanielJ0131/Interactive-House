@@ -1,6 +1,8 @@
 const admin = require("firebase-admin");
 const { SerialPort } = require("serialport");
 
+require("dotenv").config({ path: "config/.env" });
+
 // FIREBASE SETUP
 const serviceAccount = require("./serviceAccountKey.json");
 
@@ -11,9 +13,22 @@ admin.initializeApp({
 const db = admin.firestore();
 
 // SERIAL
+const serialPath = process.env.SERIAL_PORT;
+const serialBaudRate = Number(process.env.SERIAL_BAUD);
+
+if (!serialPath) {
+    console.error("Missing SERIAL_PORT in config/.env");
+    process.exit(1);
+}
+
+if (!Number.isFinite(serialBaudRate) || serialBaudRate <= 0) {
+    console.error("Invalid SERIAL_BAUD in config/.env");
+    process.exit(1);
+}
+
 const port = new SerialPort({
-    path: "COM3", // change if needed
-    baudRate: 9600,
+    path: serialPath,
+    baudRate: serialBaudRate,
 });
 
 // BUFFER
