@@ -21,11 +21,36 @@ let buffer = "";
 
 // COMMAND CACHE
 let lastCommands = {};
+let lastDeviceState = {};
+let lastTelemetry = {};
+let lastFirestoreCommandState = {};
 
 // HELPERS
 function normalize(v) {
     if (v === undefined || v === null) return null;
     return String(v).toLowerCase().trim();
+}
+
+function hasChanges(prev, next) {
+    return Object.keys(next).some((key) => prev[key] !== next[key]);
+}
+
+function getDeviceFieldValue(key, state) {
+    const entry = state[key];
+    if (!entry) return undefined;
+    return entry.state !== undefined ? entry.state : entry.value;
+}
+
+function getFirestoreCommandState(data) {
+    return {
+        door: data?.door?.state,
+        window: data?.window?.state,
+        buzzer: data?.buzzer?.state,
+        fan_INA: data?.fan_INA?.state,
+        fan_INB: data?.fan_INB?.state,
+        white_light: data?.white_light?.state,
+        yellow_led: data?.yellow_led?.value,
+    };
 }
 
 function send(cmd, type) {
@@ -82,7 +107,13 @@ db.collection("devices")
         const data = doc.data();
         if (!data) return;
 
-        console.log("Firestore update");
+        const currentCommandState = getFirestoreCommandState(data);
+        if (!hasChanges(lastFirestoreCommandState, currentCommandState)) {
+            return;
+        }
+
+        lastFirestoreCommandState = currentCommandState;
+        console.log("Firestore command update");
 
         sendCommand("door", data?.door?.state);
         sendCommand("window", data?.window?.state);
@@ -112,8 +143,6 @@ port.on("data", async (data) => {
         const msg = raw.trim();
         if (!msg) continue;
 
-        console.log("RAW:", msg);
-
         // SENSOR DATA
         if (msg.startsWith("S:")) {
             const parts = msg.substring(2).split(",");
@@ -131,14 +160,17 @@ port.on("data", async (data) => {
                 motion: Number(parts[4]),
             };
 
-            console.log("Sensors:", sensorData);
+            if (hasChanges(lastTelemetry, sensorData)) {
+                lastTelemetry = sensorData;
+                console.log("Sensors:", sensorData);
 
-            await db.collection("devices").doc("arduino").set(
-                {
-                    telemetry: sensorData,
-                },
-                { merge: true }
-            );
+                await db.collection("devices").doc("arduino").set(
+                    {
+                        telemetry: sensorData,
+                    },
+                    { merge: true }
+                );
+            }
         }
 
         // DEVICE STATE
@@ -146,61 +178,90 @@ port.on("data", async (data) => {
             const parts = msg.substring(6).split(",");
 
             let updates = {};
+            let changed = false;
 
             parts.forEach((p) => {
                 const [key, value] = p.split("=");
                 if (!key) return;
 
                 switch (key) {
-                    case "door":
-                        updates.door = {
-                            state: value === "1" ? "open" : "closed",
-                        };
+                    case "door": {
+                        const nextState = value === "1" ? "open" : "closed";
+                        if (getDeviceFieldValue("door", lastDeviceState) !== nextState) {
+                            updates.door = { state: nextState };
+                            changed = true;
+                        }
                         break;
+                    }
 
-                    case "window":
-                        updates.window = {
-                            state: value === "1" ? "open" : "closed",
-                        };
+                    case "window": {
+                        const nextState = value === "1" ? "open" : "closed";
+                        if (getDeviceFieldValue("window", lastDeviceState) !== nextState) {
+                            updates.window = { state: nextState };
+                            changed = true;
+                        }
                         break;
+                    }
 
-                    case "fanINA":
-                        updates.fan_INA = {
-                            state: value === "1" ? "on" : "off",
-                        };
+                    case "fanINA": {
+                        const nextState = value === "1" ? "on" : "off";
+                        if (getDeviceFieldValue("fan_INA", lastDeviceState) !== nextState) {
+                            updates.fan_INA = { state: nextState };
+                            changed = true;
+                        }
                         break;
+                    }
 
-                    case "fanINB":
-                        updates.fan_INB = {
-                            state: value === "1" ? "on" : "off",
-                        };
+                    case "fanINB": {
+                        const nextState = value === "1" ? "on" : "off";
+                        if (getDeviceFieldValue("fan_INB", lastDeviceState) !== nextState) {
+                            updates.fan_INB = { state: nextState };
+                            changed = true;
+                        }
                         break;
+                    }
 
-                    case "light":
-                        updates.white_light = {
-                            state: value === "1" ? "on" : "off",
-                        };
+                    case "light": {
+                        const nextState = value === "1" ? "on" : "off";
+                        if (getDeviceFieldValue("white_light", lastDeviceState) !== nextState) {
+                            updates.white_light = { state: nextState };
+                            changed = true;
+                        }
                         break;
+                    }
 
-                    case "buzzer":
-                        updates.buzzer = {
-                            state: value === "1" ? "on" : "off",
-                        };
+                    case "buzzer": {
+                        const nextState = value === "1" ? "on" : "off";
+                        if (getDeviceFieldValue("buzzer", lastDeviceState) !== nextState) {
+                            updates.buzzer = { state: nextState };
+                            changed = true;
+                        }
                         break;
+                    }
 
-                    case "yellowLED":
-                        updates.yellow_led = {
-                            value: Number(value),
-                        };
+                    case "yellowLED": {
+                        const nextValue = Number(value);
+                        if (getDeviceFieldValue("yellow_led", lastDeviceState) !== nextValue) {
+                            updates.yellow_led = { value: nextValue };
+                            changed = true;
+                        }
                         break;
+                    }
                 }
             });
 
-            console.log("State updated:", updates);
+            if (changed) {
+                lastDeviceState = {
+                    ...lastDeviceState,
+                    ...updates,
+                };
 
-            await db.collection("devices").doc("arduino").set(updates, {
-                merge: true,
-            });
+                console.log("State updated:", updates);
+
+                await db.collection("devices").doc("arduino").set(updates, {
+                    merge: true,
+                });
+            }
         }
     }
 });
