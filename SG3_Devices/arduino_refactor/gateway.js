@@ -1,7 +1,7 @@
 const admin = require("firebase-admin");
 const { SerialPort } = require("serialport");
 
-// ================= FIREBASE =================
+// FIREBASE SETUP
 const serviceAccount = require("./serviceAccountKey.json");
 
 admin.initializeApp({
@@ -10,19 +10,19 @@ admin.initializeApp({
 
 const db = admin.firestore();
 
-// ================= SERIAL =================
+// SERIAL
 const port = new SerialPort({
     path: "COM3", // change if needed
     baudRate: 9600,
 });
 
-// ================= BUFFER =================
+// BUFFER
 let buffer = "";
 
-// ================= COMMAND CACHE =================
+// COMMAND CACHE
 let lastCommands = {};
 
-// ================= HELPERS =================
+// HELPERS
 function normalize(v) {
     if (v === undefined || v === null) return null;
     return String(v).toLowerCase().trim();
@@ -39,7 +39,7 @@ function send(cmd, type) {
     console.log("→", cmd);
 }
 
-// ================= FIREBASE → ARDUINO =================
+//  FIREBASE COMMANDS --> SERIAL DATA TO ARDUINO
 function sendCommand(type, state) {
     state = normalize(state);
     if (state === null) return;
@@ -75,14 +75,14 @@ function sendCommand(type, state) {
     send(cmd, type);
 }
 
-// ================= FIRESTORE LISTENER =================
+// FIRESTORE LISTENER
 db.collection("devices")
     .doc("arduino")
     .onSnapshot((doc) => {
         const data = doc.data();
         if (!data) return;
 
-        console.log("🔥 Firestore update");
+        console.log("Firestore update");
 
         sendCommand("door", data?.door?.state);
         sendCommand("window", data?.window?.state);
@@ -91,14 +91,14 @@ db.collection("devices")
         sendCommand("fan_INB", data?.fan_INB?.state);
         sendCommand("white_light", data?.white_light?.state);
 
-        // ✅ Yellow LED (value-based)
+        // Yellow LED (value-based)
         if (data?.yellow_led?.value !== undefined) {
             const value = Math.max(0, Math.min(255, data.yellow_led.value));
             send(`YL:${value}`, "yellow_led");
         }
     });
 
-// ================= SERIAL → FIREBASE =================
+// SERIAL DATA FROM ARDUINO --> FIRESTORE
 port.on("data", async (data) => {
     buffer += data.toString();
 
@@ -106,7 +106,7 @@ port.on("data", async (data) => {
     if (!buffer.includes("\n")) return;
 
     const lines = buffer.split("\n");
-    buffer = lines.pop(); // keep unfinished part
+    buffer = lines.pop(); // keep unfinished part in buffer
 
     for (const raw of lines) {
         const msg = raw.trim();
@@ -114,12 +114,12 @@ port.on("data", async (data) => {
 
         console.log("RAW:", msg);
 
-        // ================= SENSOR DATA =================
+        // SENSOR DATA
         if (msg.startsWith("S:")) {
             const parts = msg.substring(2).split(",");
 
             if (parts.length < 5) {
-                console.log("⚠️ Bad sensor data:", msg);
+                console.log("Bad sensor data:", msg);
                 continue;
             }
 
@@ -131,7 +131,7 @@ port.on("data", async (data) => {
                 motion: Number(parts[4]),
             };
 
-            console.log("📡 Sensors:", sensorData);
+            console.log("Sensors:", sensorData);
 
             await db.collection("devices").doc("arduino").set(
                 {
@@ -141,7 +141,7 @@ port.on("data", async (data) => {
             );
         }
 
-        // ================= DEVICE STATE =================
+        // DEVICE STATE
         if (msg.startsWith("STATE:")) {
             const parts = msg.substring(6).split(",");
 
@@ -196,7 +196,7 @@ port.on("data", async (data) => {
                 }
             });
 
-            console.log("✅ State updated:", updates);
+            console.log("State updated:", updates);
 
             await db.collection("devices").doc("arduino").set(updates, {
                 merge: true,
@@ -205,14 +205,14 @@ port.on("data", async (data) => {
     }
 });
 
-// ================= SERIAL EVENTS =================
+// SERIAL EVENTS
 port.on("open", () => {
-    console.log("✅ Serial connected");
+    console.log(" Serial connected");
 });
 
 port.on("error", (err) => {
-    console.error("❌ Serial error:", err.message);
+    console.error(" Serial error:", err.message);
 });
 
-// ================= START =================
-console.log("🔥 Firestore Gateway Running...");
+// START GATEWAY
+console.log(" Firestore Gateway Running...");

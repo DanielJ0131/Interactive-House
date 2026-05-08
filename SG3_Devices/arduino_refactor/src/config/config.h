@@ -3,6 +3,8 @@
 #include <Servo.h>
 #include "../music/MusicEngine.h"
 
+const int GAS_THRESHOLD = 300;
+
 // pins
 #define YELLOW_LED_PIN 5
 extern MusicEngine music;

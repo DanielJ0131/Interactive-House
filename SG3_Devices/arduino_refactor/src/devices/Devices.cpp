@@ -1,7 +1,6 @@
 #include <Arduino.h>
 #include "Devices.h"
 #include "../config/config.h"
-#include "../config/config.h"
 
 void initDevices()
 {
