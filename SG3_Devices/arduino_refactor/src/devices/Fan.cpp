@@ -1,5 +1,5 @@
 #include "Fan.h"
-#include "../config/config.h"
+#include "../config/Config.h"
 
 void Fan::update(int value) {
     fanINA = true;

@@ -1,5 +1,5 @@
 #include "BuzzerDevice.h"
-#include "../config/config.h"
+#include "../config/Config.h"
 
 void BuzzerDevice::update(int value) {
     buzzer = true;

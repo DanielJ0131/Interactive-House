@@ -3,7 +3,7 @@
 
 #define GAS_PIN A0
 #define LIGHT_PIN A1
-#define YELLOW_LED_PIN 5
+#define ORANGE_LIGHT_PIN 5
 #define SOIL_PIN A2
 #define STEAM_PIN A3
 #define MOTION_PIN 2

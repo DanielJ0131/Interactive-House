@@ -1,5 +1,5 @@
 #include "DoorDevice.h"
-#include "../config/config.h"
+#include "../config/Config.h"
 
 void DoorDevice::update(int value)
 {

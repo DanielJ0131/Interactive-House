@@ -1,7 +1,7 @@
 const admin = require("firebase-admin");
 const { SerialPort } = require("serialport");
 
-// ================= FIREBASE =================
+// FIREBASE SETUP
 const serviceAccount = require("./serviceAccountKey.json");
 
 admin.initializeApp({
@@ -10,22 +10,47 @@ admin.initializeApp({
 
 const db = admin.firestore();
 
-// ================= SERIAL =================
+// SERIAL
 const port = new SerialPort({
     path: "COM3", // change if needed
     baudRate: 9600,
 });
 
-// ================= BUFFER =================
+// BUFFER
 let buffer = "";
 
-// ================= COMMAND CACHE =================
+// COMMAND CACHE
 let lastCommands = {};
+let lastDeviceState = {};
+let lastTelemetry = {};
+let lastFirestoreCommandState = {};
 
-// ================= HELPERS =================
+// HELPERS
 function normalize(v) {
     if (v === undefined || v === null) return null;
     return String(v).toLowerCase().trim();
+}
+
+function hasChanges(prev, next) {
+    return Object.keys(next).some((key) => prev[key] !== next[key]);
+}
+
+function getDeviceFieldValue(key, state) {
+    const entry = state[key];
+    if (!entry) return undefined;
+    return entry.state !== undefined ? entry.state : entry.value;
+}
+
+function getFirestoreCommandState(data) {
+    return {
+        door: data?.door?.state,
+        window: data?.window?.state,
+        buzzer: data?.buzzer?.state,
+        fan_INA: data?.fan_INA?.state,
+        fan_INB: data?.fan_INB?.state,
+        white_light: data?.white_light?.state,
+        orange_light: data?.orange_light?.value,
+    };
 }
 
 function send(cmd, type) {
@@ -39,7 +64,7 @@ function send(cmd, type) {
     console.log("→", cmd);
 }
 
-// ================= FIREBASE → ARDUINO =================
+//  FIREBASE COMMANDS --> SERIAL DATA TO ARDUINO
 function sendCommand(type, state) {
     state = normalize(state);
     if (state === null) return;
@@ -75,14 +100,20 @@ function sendCommand(type, state) {
     send(cmd, type);
 }
 
-// ================= FIRESTORE LISTENER =================
+// FIRESTORE LISTENER
 db.collection("devices")
     .doc("arduino")
     .onSnapshot((doc) => {
         const data = doc.data();
         if (!data) return;
 
-        console.log("🔥 Firestore update");
+        const currentCommandState = getFirestoreCommandState(data);
+        if (!hasChanges(lastFirestoreCommandState, currentCommandState)) {
+            return;
+        }
+
+        lastFirestoreCommandState = currentCommandState;
+        console.log("Firestore command update");
 
         sendCommand("door", data?.door?.state);
         sendCommand("window", data?.window?.state);
@@ -91,14 +122,14 @@ db.collection("devices")
         sendCommand("fan_INB", data?.fan_INB?.state);
         sendCommand("white_light", data?.white_light?.state);
 
-        // ✅ Yellow LED (value-based)
-        if (data?.yellow_led?.value !== undefined) {
-            const value = Math.max(0, Math.min(255, data.yellow_led.value));
-            send(`YL:${value}`, "yellow_led");
+        // Orange light (value-based)
+        if (data?.orange_light?.value !== undefined) {
+            const value = Math.max(0, Math.min(255, data.orange_light.value));
+            send(`YL:${value}`, "orange_light");
         }
     });
 
-// ================= SERIAL → FIREBASE =================
+// SERIAL DATA FROM ARDUINO --> FIRESTORE
 port.on("data", async (data) => {
     buffer += data.toString();
 
@@ -106,20 +137,18 @@ port.on("data", async (data) => {
     if (!buffer.includes("\n")) return;
 
     const lines = buffer.split("\n");
-    buffer = lines.pop(); // keep unfinished part
+    buffer = lines.pop(); // keep unfinished part in buffer
 
     for (const raw of lines) {
         const msg = raw.trim();
         if (!msg) continue;
 
-        console.log("RAW:", msg);
-
-        // ================= SENSOR DATA =================
+        // SENSOR DATA
         if (msg.startsWith("S:")) {
             const parts = msg.substring(2).split(",");
 
             if (parts.length < 5) {
-                console.log("⚠️ Bad sensor data:", msg);
+                console.log("Bad sensor data:", msg);
                 continue;
             }
 
@@ -131,88 +160,120 @@ port.on("data", async (data) => {
                 motion: Number(parts[4]),
             };
 
-            console.log("📡 Sensors:", sensorData);
+            if (hasChanges(lastTelemetry, sensorData)) {
+                lastTelemetry = sensorData;
+                console.log("Sensors:", sensorData);
 
-            await db.collection("devices").doc("arduino").set(
-                {
-                    telemetry: sensorData,
-                },
-                { merge: true }
-            );
+                await db.collection("devices").doc("arduino").set(
+                    {
+                        telemetry: sensorData,
+                    },
+                    { merge: true }
+                );
+            }
         }
 
-        // ================= DEVICE STATE =================
+        // DEVICE STATE
         if (msg.startsWith("STATE:")) {
             const parts = msg.substring(6).split(",");
 
             let updates = {};
+            let changed = false;
 
             parts.forEach((p) => {
                 const [key, value] = p.split("=");
                 if (!key) return;
 
                 switch (key) {
-                    case "door":
-                        updates.door = {
-                            state: value === "1" ? "open" : "closed",
-                        };
+                    case "door": {
+                        const nextState = value === "1" ? "open" : "closed";
+                        if (getDeviceFieldValue("door", lastDeviceState) !== nextState) {
+                            updates.door = { state: nextState };
+                            changed = true;
+                        }
                         break;
+                    }
 
-                    case "window":
-                        updates.window = {
-                            state: value === "1" ? "open" : "closed",
-                        };
+                    case "window": {
+                        const nextState = value === "1" ? "open" : "closed";
+                        if (getDeviceFieldValue("window", lastDeviceState) !== nextState) {
+                            updates.window = { state: nextState };
+                            changed = true;
+                        }
                         break;
+                    }
 
-                    case "fanINA":
-                        updates.fan_INA = {
-                            state: value === "1" ? "on" : "off",
-                        };
+                    case "fanINA": {
+                        const nextState = value === "1" ? "on" : "off";
+                        if (getDeviceFieldValue("fan_INA", lastDeviceState) !== nextState) {
+                            updates.fan_INA = { state: nextState };
+                            changed = true;
+                        }
                         break;
+                    }
 
-                    case "fanINB":
-                        updates.fan_INB = {
-                            state: value === "1" ? "on" : "off",
-                        };
+                    case "fanINB": {
+                        const nextState = value === "1" ? "on" : "off";
+                        if (getDeviceFieldValue("fan_INB", lastDeviceState) !== nextState) {
+                            updates.fan_INB = { state: nextState };
+                            changed = true;
+                        }
                         break;
+                    }
 
-                    case "light":
-                        updates.white_light = {
-                            state: value === "1" ? "on" : "off",
-                        };
+                    case "light": {
+                        const nextState = value === "1" ? "on" : "off";
+                        if (getDeviceFieldValue("white_light", lastDeviceState) !== nextState) {
+                            updates.white_light = { state: nextState };
+                            changed = true;
+                        }
                         break;
+                    }
 
-                    case "buzzer":
-                        updates.buzzer = {
-                            state: value === "1" ? "on" : "off",
-                        };
+                    case "buzzer": {
+                        const nextState = value === "1" ? "on" : "off";
+                        if (getDeviceFieldValue("buzzer", lastDeviceState) !== nextState) {
+                            updates.buzzer = { state: nextState };
+                            changed = true;
+                        }
                         break;
+                    }
 
-                    case "yellowLED":
-                        updates.yellow_led = {
-                            value: Number(value),
-                        };
+                    case "orange_light": {
+                        const nextValue = Number(value);
+                        if (getDeviceFieldValue("orange_light", lastDeviceState) !== nextValue) {
+                            updates.orange_light = { value: nextValue };
+                            changed = true;
+                        }
                         break;
+                    }
                 }
             });
 
-            console.log("✅ State updated:", updates);
+            if (changed) {
+                lastDeviceState = {
+                    ...lastDeviceState,
+                    ...updates,
+                };
 
-            await db.collection("devices").doc("arduino").set(updates, {
-                merge: true,
-            });
+                console.log("State updated:", updates);
+
+                await db.collection("devices").doc("arduino").set(updates, {
+                    merge: true,
+                });
+            }
         }
     }
 });
 
-// ================= SERIAL EVENTS =================
+// SERIAL EVENTS
 port.on("open", () => {
-    console.log("✅ Serial connected");
+    console.log(" Serial connected");
 });
 
 port.on("error", (err) => {
-    console.error("❌ Serial error:", err.message);
+    console.error(" Serial error:", err.message);
 });
 
-// ================= START =================
-console.log("🔥 Firestore Gateway Running...");
+// START GATEWAY
+console.log(" Firestore Gateway Running...");

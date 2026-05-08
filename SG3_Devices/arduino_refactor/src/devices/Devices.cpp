@@ -1,7 +1,6 @@
 #include <Arduino.h>
 #include "Devices.h"
-#include "../config/config.h"
-#include "../config/config.h"
+#include "../config/Config.h"
 
 void initDevices()
 {
@@ -24,7 +23,7 @@ void updateDevices()
     digitalWrite(7, fanINA ? HIGH : LOW);
     digitalWrite(6, fanINB ? HIGH : LOW);
 
-    digitalWrite(YELLOW_LED_PIN, yellowLED > 0 ? HIGH : LOW);
+    analogWrite(ORANGE_LIGHT_PIN, orangeLight);
 
     if (buzzer && !music.isPlaying())
     {

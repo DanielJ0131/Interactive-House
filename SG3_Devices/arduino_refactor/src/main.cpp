@@ -1,6 +1,6 @@
 #include <Arduino.h>
 
-#include "config/config.h"
+#include "config/Config.h"
 #include "core/CommandHandler.h"
 #include "devices/Devices.h"
 #include "sensors/Sensors.h"
@@ -95,14 +95,35 @@ void loop()
     Serial.print(",fanINB="); Serial.print(fanINB);
     Serial.print(",light="); Serial.print(whiteLightOn);
     Serial.print(",buzzer="); Serial.print(buzzer);
-    Serial.print(",yellowLED="); Serial.print(yellowLED);
+    Serial.print(",orange_light="); Serial.print(orangeLight);
     Serial.println();
 
     // LCD
-    lcd.show(
-        "G:" + String(s.gas) + " L:" + String(s.light),
-        "S:" + String(s.steam) + " M:" + String(s.motion)
-    );
+String activeStates = "";
+
+// If s.gas is higher than your safety limit, add the alert
+if (s.gas > GAS_THRESHOLD) {
+    activeStates += "GAS ALERT! ";
+}
+
+
+if (doorOpen)           activeStates += "Door:Open ";
+if (windowOpen)         activeStates += "Win:Open ";
+if (fanINA || fanINB)   activeStates += "Fan:ON ";
+if (whiteLightOn)       activeStates += "W.Light:ON ";
+activeStates += "O.Light:" + String(orangeLight) + " ";
+if (buzzer)             activeStates += "BUZZER!! ";
+
+
+// If nothing is active, show a default message
+if (activeStates == "") {
+    activeStates = "Software Eng. G4 HKR";
+}
+
+String line1 = activeStates.substring(0, 16);
+String line2 = activeStates.length() > 16 ? activeStates.substring(16, 32) : "";
+
+lcd.show(line1, line2);
 
     delay(200);
 }

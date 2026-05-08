@@ -1,5 +1,5 @@
 #include "WindowDevice.h"
-#include "../config/config.h"
+#include "../config/Config.h"
 
 void WindowDevice::update(int value)
 {

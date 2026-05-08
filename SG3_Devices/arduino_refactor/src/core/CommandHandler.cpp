@@ -1,5 +1,5 @@
 #include "CommandHandler.h"
-#include "../config/config.h"
+#include "../config/Config.h"
 #include "../music/MusicEngine.h"
 
 extern MusicEngine music;
@@ -43,10 +43,10 @@ void handleCommand(String c) {
         whiteLightOn = false;
     }
 
-    // YELLOW LED (0-255)
+    // ORANGE LIGHT (0-255)
     else if (c.startsWith("YL:")) {
         int value = c.substring(3).toInt();
-        yellowLED = constrain(value, 0, 255);
+        orangeLight = constrain(value, 0, 255);
     }
 
     else if (c == "C") {
