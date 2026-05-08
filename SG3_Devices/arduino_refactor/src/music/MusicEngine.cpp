@@ -6,6 +6,7 @@ void MusicEngine::reset() {
     length = 0;
     index = 0;
     playing = false;
+    noteOn = false;
     noTone(BUZZER_PIN);
 }
 
@@ -22,18 +23,27 @@ void MusicEngine::finish() {
 }
 
 void MusicEngine::play() {
-    if (length == 0) return;
+    if (length == 0) {
+        stop();
+        return;
+    }
 
     playing = true;
     index = 0;
     lastTime = millis();
 
-    tone(BUZZER_PIN, melody[0]);
-    noteOn = true;
+    if (melody[0] > 0) {
+        tone(BUZZER_PIN, melody[0]);
+        noteOn = true;
+    } else {
+        noTone(BUZZER_PIN);
+        noteOn = false;
+    }
 }
 
 void MusicEngine::stop() {
     playing = false;
+    noteOn = false;
     noTone(BUZZER_PIN);
 }
 
@@ -54,12 +64,18 @@ void MusicEngine::update() {
         index++;
 
         if (index >= length) {
-            index = 0; // loop song
+            stop();
+            return;
         }
 
-        tone(BUZZER_PIN, melody[index]);
+        if (melody[index] > 0) {
+            tone(BUZZER_PIN, melody[index]);
+            noteOn = true;
+        } else {
+            noTone(BUZZER_PIN);
+            noteOn = false;
+        }
         lastTime = now;
-        noteOn = true;
     }
 }
 
