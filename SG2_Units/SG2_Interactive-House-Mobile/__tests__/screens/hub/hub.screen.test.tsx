@@ -194,6 +194,42 @@ describe('Hub Screen', () => {
     expect(getArduinoDevicesDocRef).not.toHaveBeenCalled();
   });
 
+  it('toggles fan power off when already on', async () => {
+    (onSnapshot as jest.Mock).mockImplementation(
+      (_docRef, onNext: (snap: any) => void) => {
+        onNext({
+          exists: () => true,
+          data: () => ({
+            ...mockDeviceData,
+            fan_INA: {
+              ...mockDeviceData.fan_INA,
+              state: 'on',
+            },
+            fan_INB: {
+              ...mockDeviceData.fan_INB,
+              state: 'off',
+            },
+          }),
+        });
+
+        return jest.fn();
+      }
+    );
+
+    const { getByText } = render(<DatabaseScreen />);
+
+    await waitFor(() => {
+      expect(getByText('Fan')).toBeTruthy();
+    });
+
+    fireEvent.press(getByText('Fan'));
+
+    expect(updateDoc).toHaveBeenCalledWith('mock-doc-ref', {
+      'fan_INA.state': 'off',
+      'fan_INB.state': 'off',
+    });
+  });
+
   it('toggles door state from closed to open', async () => {
     const { getByText } = render(<DatabaseScreen />);
 
@@ -208,6 +244,36 @@ describe('Hub Screen', () => {
     });
   });
 
+  it('toggles window state from open to closed', async () => {
+    (onSnapshot as jest.Mock).mockImplementation(
+      (_docRef, onNext: (snap: any) => void) => {
+        onNext({
+          exists: () => true,
+          data: () => ({
+            ...mockDeviceData,
+            window: {
+              ...mockDeviceData.window,
+              state: 'open',
+            },
+          }),
+        });
+
+        return jest.fn();
+      }
+    );
+
+    const { getByText } = render(<DatabaseScreen />);
+
+    await waitFor(() => {
+      expect(getByText('Window')).toBeTruthy();
+    });
+
+    fireEvent.press(getByText('Window'));
+
+    expect(updateDoc).toHaveBeenCalledWith('mock-doc-ref', {
+      'window.state': 'closed',
+    });
+  });
   it('toggles fan power on and writes INA/INB states together', async () => {
     const { getByText } = render(<DatabaseScreen />);
 
@@ -554,7 +620,7 @@ describe('Hub Screen', () => {
     const { getByText } = render(<DatabaseScreen />);
 
     await waitFor(() => {
-      expect(getByText('Database')).toBeTruthy();
+      expect(getByText('My Home')).toBeTruthy();
     });
   });
 

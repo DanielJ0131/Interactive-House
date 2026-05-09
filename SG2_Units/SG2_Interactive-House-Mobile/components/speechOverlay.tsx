@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, Pressable, Alert, PermissionsAndroid, Platform } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import Constants from "expo-constants";
 import { hubController } from '../utils/hubController';
 import { useRouter } from "expo-router";
 import { useAppTheme } from '../utils/AppThemeContext';
@@ -13,13 +14,16 @@ export default function SpeechOverlay() {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const shouldShowTranscriptBubble = isListening || transcript.length > 0;
+  const canUseSpeechRecognition = Platform.OS !== "web" && Constants.appOwnership !== "expo";
 
   let SpeechRecognition: any = null;
 
-  try {
-    SpeechRecognition = require("expo-speech-recognition");
-  } catch (e) {
-    SpeechRecognition = null;
+  if (canUseSpeechRecognition) {
+    try {
+      SpeechRecognition = require("expo-speech-recognition");
+    } catch (e) {
+      SpeechRecognition = null;
+    }
   }
 
   const isNativeAvailable = !!SpeechRecognition?.ExpoSpeechRecognitionModule;

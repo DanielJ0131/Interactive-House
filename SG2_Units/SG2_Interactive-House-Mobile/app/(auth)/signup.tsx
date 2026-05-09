@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { 
   View, 
   Text, 
@@ -14,16 +14,23 @@ import { Link, useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../utils/AppThemeContext';
-
-// Firebase Imports
 import { auth, db } from '../../utils/firebaseConfig';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { deleteField, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { INITIAL_DEVICE_DATA } from '../../data/deviceDefaults';
 import { getArduinoDevicesDocRef } from '../../utils/firestorePaths';
 
-const AUTH_TIMEOUT_MS = 5_000;
 
+// Timeout for authentication requests (in milliseconds)
+const AUTH_TIMEOUT_MS = 8_000;
+
+
+/**
+ * Utility function to add a timeout to a promise.
+ * Used to prevent hanging on slow network requests.
+ * @param promise The promise to race against the timeout
+ * @param ms Timeout in milliseconds
+ */
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
@@ -39,6 +46,23 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   });
 }
 
+
+/**
+ * SignupScreen
+ *
+ * This component renders the signup screen for the Interactive House app.
+ * It allows users to create a new account with name, email, and password.
+ *
+ * Features:
+ * - Form validation for all fields
+ * - Password and confirm password fields with visibility toggles
+ * - Firebase Auth integration for account creation
+ * - Firestore integration for user/device profile setup
+ * - Error handling and loading state
+ * - Themed UI with support for light/dark mode
+ * - Navigation to login and home screens
+ * - Responsive layout with keyboard avoidance
+ */
 export default function SignupScreen() {
   const router = useRouter();
   const { theme } = useAppTheme();
@@ -55,6 +79,14 @@ export default function SignupScreen() {
     general?: string;
   }>({});
 
+  // State for toggling password visibility (for both password fields)
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
+
+  /**
+   * Handles signup form submission.
+   * Validates input, creates user in Firebase Auth, sets up Firestore profile, and handles errors.
+   */
   const handleSignup = async () => {
     const nextErrors: {
       name?: string;
@@ -158,8 +190,10 @@ export default function SignupScreen() {
     }
   };
 
+  // --- UI Rendering ---
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      {/* Keyboard avoidance for input fields */}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
@@ -167,7 +201,7 @@ export default function SignupScreen() {
         <ScrollView className="flex-1" contentContainerStyle={{ flexGrow: 1 }}>
           <View className="flex-1 justify-center p-8">
             
-            {/* Back Button */}
+            {/* Back Button (top left) */}
             <View className="absolute top-4 left-4 z-10">
               <Pressable 
                 onPress={() => router.replace('/')} 
@@ -178,16 +212,20 @@ export default function SignupScreen() {
               </Pressable>
             </View>
 
+            {/* Header Section: Title and subtitle */}
             <View className="mt-8">
               <Text style={{ color: theme.colors.text }} className="text-4xl font-bold mb-2">Create Account</Text>
               <Text style={{ color: theme.colors.mutedText }} className="mb-8">Start your Interactive House journey today.</Text>
             </View>
 
+            {/* Form Section: Name, Email, Password, Confirm Password */}
             <View className="space-y-4">
+              {/* General error message */}
               {errors.general && (
                 <Text style={{ color: theme.colors.danger }} className="mb-3 ml-1 font-medium">{errors.general}</Text>
               )}
 
+              {/* Name input */}
               <Text style={{ color: theme.colors.text }} className="mb-1 ml-1 font-medium">Full Name</Text>
               {errors.name && (
                 <Text style={{ color: theme.colors.danger }} className="mb-2 ml-1 text-xs font-medium">{errors.name}</Text>
@@ -206,6 +244,7 @@ export default function SignupScreen() {
                 className="border p-4 rounded-2xl mb-4"
               />
 
+              {/* Email input */}
               <Text style={{ color: theme.colors.text }} className="mb-1 ml-1 font-medium">Email Address</Text>
               {errors.email && (
                 <Text style={{ color: theme.colors.danger }} className="mb-2 ml-1 text-xs font-medium">{errors.email}</Text>
@@ -226,49 +265,80 @@ export default function SignupScreen() {
                 className="border p-4 rounded-2xl mb-4"
               />
 
+              {/* Password input with visibility toggle */}
               <Text style={{ color: theme.colors.text }} className="mb-1 ml-1 font-medium">Password</Text>
               {errors.password && (
                 <Text style={{ color: theme.colors.danger }} className="mb-2 ml-1 text-xs font-medium">{errors.password}</Text>
               )}
-              <TextInput
-                placeholder="••••••••"
-                placeholderTextColor={theme.colors.subtleText}
-                value={password}
-                onChangeText={(value) => {
-                  setPassword(value);
-                  if (errors.password || errors.confirmPassword || errors.general) {
-                    setErrors((prev) => ({
-                      ...prev,
-                      password: undefined,
-                      confirmPassword: undefined,
-                      general: undefined,
-                    }));
-                  }
-                }}
-                style={{ backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.border, color: theme.colors.text }}
-                className="border p-4 rounded-2xl mb-4"
-                secureTextEntry
-              />
+              <View className="relative mb-4">
+                <TextInput
+                  placeholder="••••••••"
+                  placeholderTextColor={theme.colors.subtleText}
+                  value={password}
+                  onChangeText={(value) => {
+                    setPassword(value);
+                    if (errors.password || errors.confirmPassword || errors.general) {
+                      setErrors((prev) => ({
+                        ...prev,
+                        password: undefined,
+                        confirmPassword: undefined,
+                        general: undefined,
+                      }));
+                    }
+                  }}
+                  style={{ backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.border, color: theme.colors.text }}
+                  className="border p-4 pr-12 rounded-2xl"
+                  secureTextEntry={!isPasswordVisible}
+                />
+                {/* Eye icon to toggle password visibility */}
+                <Pressable
+                  testID="password-visibility-toggle"
+                  onPress={() => setIsPasswordVisible((v) => !v)}
+                  style={{ position: 'absolute', right: 16, top: 16 }}
+                >
+                  <MaterialCommunityIcons
+                    name={isPasswordVisible ? 'eye-off' : 'eye'}
+                    size={24}
+                    color={theme.colors.subtleText}
+                  />
+                </Pressable>
+              </View>
 
+              {/* Confirm password input with visibility toggle */}
               <Text style={{ color: theme.colors.text }} className="mb-1 ml-1 font-medium">Confirm Password</Text>
               {errors.confirmPassword && (
                 <Text style={{ color: theme.colors.danger }} className="mb-2 ml-1 text-xs font-medium">{errors.confirmPassword}</Text>
               )}
-              <TextInput
-                placeholder="••••••••"
-                placeholderTextColor={theme.colors.subtleText}
-                value={confirmPassword}
-                onChangeText={(value) => {
-                  setConfirmPassword(value);
-                  if (errors.confirmPassword || errors.general) {
-                    setErrors((prev) => ({ ...prev, confirmPassword: undefined, general: undefined }));
-                  }
-                }}
-                style={{ backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.border, color: theme.colors.text }}
-                className="border p-4 rounded-2xl mb-4"
-                secureTextEntry
-              />
+              <View className="relative mb-4">
+                <TextInput
+                  placeholder="••••••••"
+                  placeholderTextColor={theme.colors.subtleText}
+                  value={confirmPassword}
+                  onChangeText={(value) => {
+                    setConfirmPassword(value);
+                    if (errors.confirmPassword || errors.general) {
+                      setErrors((prev) => ({ ...prev, confirmPassword: undefined, general: undefined }));
+                    }
+                  }}
+                  style={{ backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.border, color: theme.colors.text }}
+                  className="border p-4 pr-12 rounded-2xl"
+                  secureTextEntry={!isConfirmPasswordVisible}
+                />
+                {/* Eye icon to toggle confirm password visibility */}
+                <Pressable
+                  testID="confirm-password-visibility-toggle"
+                  onPress={() => setIsConfirmPasswordVisible((v) => !v)}
+                  style={{ position: 'absolute', right: 16, top: 16 }}
+                >
+                  <MaterialCommunityIcons
+                    name={isConfirmPasswordVisible ? 'eye-off' : 'eye'}
+                    size={24}
+                    color={theme.colors.subtleText}
+                  />
+                </Pressable>
+              </View>
 
+              {/* Submit button */}
               <Pressable
                 onPress={handleSignup}
                 disabled={isSubmitting}
@@ -283,6 +353,7 @@ export default function SignupScreen() {
               </Pressable>
             </View>
 
+            {/* Redirect to Login link */}
             <View className="flex-row justify-center mt-10">
               <Text style={{ color: theme.colors.mutedText }}>Already have an account? </Text>
               <Link href="/login" asChild>
