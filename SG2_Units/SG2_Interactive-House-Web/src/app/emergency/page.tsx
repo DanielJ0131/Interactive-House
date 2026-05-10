@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-export default function EmergencyPage() {
+function EmergencyContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const from = searchParams.get("from");
@@ -187,5 +188,13 @@ export default function EmergencyPage() {
         </button>
       </div>
     </main>
+  );
+}
+
+export default function EmergencyPage() {
+  return (
+    <Suspense fallback={null}>
+      <EmergencyContent />
+    </Suspense>
   );
 }
