@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   ScrollView,
   Text,
@@ -9,7 +9,6 @@ import {
   View,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   ActivityIndicator,
   Pressable
 } from 'react-native';
@@ -19,8 +18,17 @@ import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useGuest } from '../../utils/GuestContext';
 import { useAppTheme } from '../../utils/AppThemeContext';
 
-const AUTH_TIMEOUT_MS = 15_000;
 
+// Timeout for authentication requests (in milliseconds)
+const AUTH_TIMEOUT_MS = 8_000;
+
+
+/**
+ * Utility function to add a timeout to a promise.
+ * Used to prevent hanging on slow network requests.
+ * @param promise The promise to race against the timeout
+ * @param ms Timeout in milliseconds
+ */
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
@@ -36,19 +44,43 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   });
 }
 
+
+/**
+ * LoginScreen
+ *
+ * This component renders the login screen for the Interactive House app.
+ * It provides authentication via email/password (using Firebase Auth) and a guest login option.
+ *
+ * Features:
+ * - Email/password login with error handling and loading state
+ * - Guest login (bypasses authentication)
+ * - Password visibility toggle
+ * - Themed UI with support for light/dark mode
+ * - Navigation to signup and home screens
+ * - Responsive layout with keyboard avoidance
+ */
 export default function LoginScreen() {
+  // Navigation router
   const router = useRouter();
+  // Guest context setter
   const { setIsGuest } = useGuest();
+  // App theme (colors, etc.)
   const { theme } = useAppTheme();
+  // Form state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  // Loading and error state
   const [isLoading, setIsLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
-
-  // 1. Added state for toggling password visibility
+  // Password visibility toggle
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
+  /**
+   * Handles login with email and password.
+   * Shows loading indicator and error messages as needed.
+   */
   const handleLogin = async () => {
+    // Validate input
     if (!email || !password) {
       setLoginError('Please enter both email and password.');
       return;
@@ -58,10 +90,13 @@ export default function LoginScreen() {
     setIsLoading(true);
 
     try {
+      // Attempt sign-in with timeout
       await withTimeout(signInWithEmailAndPassword(auth, email.trim(), password), AUTH_TIMEOUT_MS);
       setLoginError(null);
+      // Navigate to main hub on success
       router.replace('/(tabs)/hub');
     } catch (error: any) {
+      // Handle known Firebase Auth errors
       let errorMessage = 'An unexpected error occurred.';
 
       switch (error.code) {
@@ -87,14 +122,20 @@ export default function LoginScreen() {
     }
   };
 
+  /**
+   * Handles guest login (no authentication).
+   * Sets guest state and navigates to main hub.
+   */
   const handleGuestLogin = () => {
     setLoginError(null);
     setIsGuest(true);
     router.replace('/(tabs)/hub');
   };
 
+  // --- UI Rendering ---
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      {/* Keyboard avoidance for input fields */}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
@@ -102,7 +143,7 @@ export default function LoginScreen() {
         <ScrollView className="flex-1" contentContainerStyle={{ flexGrow: 1 }}>
           <View className="flex-1 justify-center p-8">
 
-            {/* Back Button */}
+            {/* Back Button (top left) */}
             <View className="absolute top-4 left-4 z-10">
               <Pressable
                 onPress={() => router.replace('/')}
@@ -113,9 +154,8 @@ export default function LoginScreen() {
               </Pressable>
             </View>
             
-            {/* Header Section */}
+            {/* Header Section: App icon and welcome text */}
             <View className="items-center mb-10 mt-8">
-              {/* Change <div> to <View> below */}
               <View style={{ backgroundColor: theme.colors.accentSoft }} className="p-4 rounded-3xl mb-4">
                 <MaterialCommunityIcons name="shield-home" size={60} color={theme.colors.accent} />
               </View>
@@ -123,8 +163,9 @@ export default function LoginScreen() {
               <Text style={{ color: theme.colors.mutedText }} className="text-lg mt-2">Sign in to control your home</Text>
             </View>
 
-            {/* Form Section */}
+            {/* Form Section: Email and Password fields */}
             <View className="space-y-4">
+              {/* Email input */}
               <View>
                 <Text style={{ color: theme.colors.text }} className="mb-2 ml-1 font-medium">Email Address</Text>
                 <TextInput
@@ -149,9 +190,9 @@ export default function LoginScreen() {
                 />
               </View>
 
+              {/* Password input with visibility toggle */}
               <View>
                 <Text style={{ color: theme.colors.text }} className="mb-2 ml-1 font-medium">Password</Text>
-                {/* 2. Container for Password + Toggle Button */}
                 <View className="relative">
                   <TextInput
                     style={{ backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.border, color: theme.colors.text }}
@@ -168,11 +209,11 @@ export default function LoginScreen() {
                     autoComplete="password"
                     textContentType="password"
                     importantForAutofill="yes"
-                    // 3. Toggle this based on state
+                    // Hide/show password based on toggle
                     secureTextEntry={!isPasswordVisible}
                     editable={!isLoading}
                   />
-                  {/* 4. The Eye Icon Button */}
+                  {/* Eye icon to toggle password visibility */}
                   <TouchableOpacity
                     testID="password-visibility-toggle"
                     onPress={() => setIsPasswordVisible(!isPasswordVisible)}
@@ -188,13 +229,15 @@ export default function LoginScreen() {
               </View>
             </View>
 
-            {/* Action Buttons */}
+            {/* Action Buttons: Sign In and Guest Login */}
             <View className="mt-8">
+              {/* Error message display */}
               {loginError && (
                 <View style={{ backgroundColor: theme.colors.dangerSoft, borderColor: theme.colors.danger }} className="mb-4 rounded-2xl border p-3">
                   <Text style={{ color: theme.colors.danger }} className="text-sm font-medium">{loginError}</Text>
                 </View>
               )}
+              {/* Sign In button */}
               <Pressable
                 testID="sign-in-button"
                 style={{ backgroundColor: isLoading ? theme.colors.surfaceStrong : theme.colors.accent }}
@@ -209,6 +252,7 @@ export default function LoginScreen() {
                 )}
               </Pressable>
 
+              {/* Guest login button */}
               <Pressable
                 testID="guest-login-button"
                 className="mt-6 py-2 active:opacity-60"
@@ -222,7 +266,7 @@ export default function LoginScreen() {
               </Pressable>
             </View>
 
-            {/* Redirect to Signup */}
+            {/* Redirect to Signup link */}
             <View className="flex-row justify-center mt-8">
               <Text style={{ color: theme.colors.mutedText }}>Don't have an account? </Text>
               <TouchableOpacity onPress={() => router.push('/(auth)/signup')}>

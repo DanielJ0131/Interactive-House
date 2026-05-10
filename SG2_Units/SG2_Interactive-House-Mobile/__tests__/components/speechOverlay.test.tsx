@@ -72,6 +72,10 @@ jest.mock('@expo/vector-icons', () => ({
   MaterialCommunityIcons: () => null,
 }));
 
+jest.mock('expo-constants', () => ({
+  appOwnership: 'standalone',
+}));
+
 jest.mock(
   'expo-speech-recognition',
   () => ({

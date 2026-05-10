@@ -1,4 +1,6 @@
-import React, { useRef, useState } from "react";
+// AI Control Screen for Smart House App
+// Allows users to chat with an AI assistant that can interpret commands and control devices
+import { useRef, useState } from "react";
 import {
   View,
   Text,
@@ -15,8 +17,12 @@ import { getArduinoDevicesDocRef } from "../../utils/firestorePaths";
 import { useGuest } from "../../utils/GuestContext";
 import { useAppTheme } from "../../utils/AppThemeContext";
 
+
+// Message type for chat history
 type Message = { id: string; text: string; sender: "user" | "ai" };
 
+
+// Supported device keys for control
 type DeviceKey =
   | "white_light"
   | "fan_INA"
@@ -24,21 +30,26 @@ type DeviceKey =
   | "window"
   | "buzzer";
 
+
+// Supported device states
 type DeviceState = "on" | "off" | "open" | "closed";
 
+
+// AICommand: device control or chat reply
 type AICommand =
   | {
-      type: "device_control";
-      device: DeviceKey;
-      state: DeviceState;
-      reply: string;
-    }
+    type: "device_control";
+    device: DeviceKey;
+    state: DeviceState;
+    reply: string;
+  }
   | {
-      type: "chat";
-      reply: string;
-    };
+    type: "chat";
+    reply: string;
+  };
 
-// Defines valid states each smart house device can be set to.
+
+// Allowed states for each device
 const DEVICE_RULES: Record<DeviceKey, DeviceState[]> = {
   white_light: ["on", "off"],
   fan_INA: ["on", "off"],
@@ -47,7 +58,8 @@ const DEVICE_RULES: Record<DeviceKey, DeviceState[]> = {
   window: ["open", "closed"],
 };
 
-// Validates if Gemini returned a properly structured command.
+
+// Type guard: checks if data is a valid AICommand
 function isValidCommand(data: unknown): data is AICommand {
   if (!data || typeof data !== "object") return false;
 
@@ -78,12 +90,14 @@ function isValidCommand(data: unknown): data is AICommand {
   return false;
 }
 
-// Extracts JSON commands from AI responses.
+
+// Attempts to extract a valid AICommand from a string (handles raw JSON or embedded JSON)
 function extractJson(text: string): AICommand | null {
   try {
     const parsed = JSON.parse(text);
     return isValidCommand(parsed) ? parsed : null;
   } catch {
+    // Try to extract JSON object from within text
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) return null;
 
@@ -96,7 +110,8 @@ function extractJson(text: string): AICommand | null {
   }
 }
 
-// Updates Firestore so physical smart house devices can react.
+
+// Executes a device control command by updating Firestore
 async function executeDeviceCommand(device: DeviceKey, state: DeviceState) {
   const allowedStates = DEVICE_RULES[device];
 
@@ -111,19 +126,24 @@ async function executeDeviceCommand(device: DeviceKey, state: DeviceState) {
   });
 }
 
-// Main AI screen for chat-based smart house control.
+
+/**
+ * AI Screen component: chat interface for controlling smart house devices via AI.
+ * Handles chat session, message history, device command execution, and guest mode.
+ */
 export default function AiScreen() {
-  const { theme } = useAppTheme();
-  const { isGuest } = useGuest();
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const listRef = useRef<FlatList<Message>>(null);
+  const { theme } = useAppTheme(); // Theme colors
+  const { isGuest } = useGuest(); // Guest mode state
+  const [messages, setMessages] = useState<Message[]>([]); // Chat history
+  const [input, setInput] = useState(""); // User input
+  const [loading, setLoading] = useState(false); // Loading state
+  const listRef = useRef<FlatList<Message>>(null); // Ref for FlatList (scroll)
+  // Ref for chat session (Gemini model)
   const chatSessionRef = useRef<
     ReturnType<ReturnType<typeof getGeminiModel>["startChat"]> | null
   >(null);
 
-    // Creates and reuses a persistent Gemini chat session.
+  // Returns or creates a persistent chat session with the AI model
   const getChatSession = () => {
     if (chatSessionRef.current) return chatSessionRef.current;
 
@@ -180,7 +200,7 @@ Examples:
     return chatSessionRef.current;
   };
 
-  // Adds AI responses to the chat interface.
+  // Adds an AI message to the chat history
   const addAiMessage = (text: string) => {
     setMessages((prev) => [
       ...prev,
@@ -191,7 +211,8 @@ Examples:
       },
     ]);
   };
-  // Handles user input, AI responses, and device execution.
+
+  // Handles sending a user message and processing the AI response
   const handleSend = async () => {
     const trimmed = input.trim();
     if (!trimmed || loading) return;
@@ -210,6 +231,7 @@ Examples:
       const result = await getChatSession().sendMessage(trimmed);
       const rawText = result.response.text().trim();
 
+      // Check for invalid command format or refusal
       if (
         rawText.toLowerCase().includes("don't have access") ||
         rawText.toLowerCase().includes("do not have access") ||
@@ -223,6 +245,7 @@ Examples:
         return;
       }
 
+      // Try to extract a valid command from the AI response
       const command = extractJson(rawText);
 
       if (!command) {
@@ -232,11 +255,13 @@ Examples:
         return;
       }
 
+      // If chat reply, just show the reply
       if (command.type === "chat") {
         addAiMessage(command.reply);
         return;
       }
 
+      // If device control, execute the command and show confirmation
       await executeDeviceCommand(command.device, command.state);
       addAiMessage(command.reply);
     } catch (error) {
@@ -260,8 +285,10 @@ Examples:
     );
   }
 
+  // Main chat UI: message list, input box, send button
   return (
     <View style={{ backgroundColor: theme.colors.background }} className="flex-1 p-4">
+      {/* Chat message list */}
       <FlatList
         ref={listRef}
         data={messages}
@@ -275,10 +302,10 @@ Examples:
               backgroundColor:
                 item.sender === 'user' ? theme.colors.accent : theme.colors.surface,
             }}
-            className={`my-2 max-w-[85%] rounded-2xl p-3 ${
-              item.sender === "user" ? "self-end" : "self-start"
-            }`}
+            className={`my-2 max-w-[85%] rounded-2xl p-3 ${item.sender === "user" ? "self-end" : "self-start"
+              }`}
           >
+            {/* User messages: plain text; AI messages: markdown */}
             {item.sender === "user" ? (
               <Text style={{ color: theme.colors.accentText }} className="text-[15px]">{item.text}</Text>
             ) : (
@@ -341,6 +368,7 @@ Examples:
         }
       />
 
+      {/* Loading indicator when waiting for AI response */}
       {loading && (
         <View className="mb-4 ml-2 flex-row items-center">
           <ActivityIndicator size="small" color={theme.colors.accent} />
@@ -350,6 +378,7 @@ Examples:
         </View>
       )}
 
+      {/* Input box and send button */}
       <View style={{ borderTopColor: theme.colors.border, backgroundColor: theme.colors.background }} className="flex-row items-center border-t pt-4">
         <TextInput
           style={{

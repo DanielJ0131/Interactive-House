@@ -7,31 +7,11 @@ import Link from "next/link";
 import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { db, auth } from "@/utils/firebaseConfig";
-
+import { useSpeechContext } from '../context/SpeechContext';    
 import TopHeader from "@/components/TopHeader";
 import { PageShell } from "@/components/pageShell";
 import Icon from '@mdi/react';
 import { mdiLightbulb, mdiDoor, mdiWeatherWindy, mdiFan, mdiRun, mdiCloud, mdiAlert, mdiRefresh, mdiMicrophone, mdiChevronRight } from '@mdi/js';
-
-function VoiceTile() {
-    return (
-        <Link href="/voice" className="block group mb-8">
-            <div className="rounded-3xl bg-white/5 backdrop-blur-md border border-white/10 p-5 flex items-center justify-between hover:bg-white/10 transition-all border-l-4 border-l-[#0EA5E9] shadow-xl">
-                <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-2xl bg-[#0EA5E9]/20 flex items-center justify-center text-[#0EA5E9] group-hover:scale-110 transition-transform">
-                        <Icon path={mdiMicrophone} size={1.75} />
-                    </div>
-                    <div>
-                        <p className="text-lg font-semibold text-white">Voice Control</p>
-                        <p className="text-white/40 text-[10px] tracking-[0.2em] uppercase font-bold">Open Assistant</p>
-                    </div>
-                </div>
-                <Icon path={mdiChevronRight} size={1.25} className="text-white/20 group-hover:text-white group-hover:translate-x-1 transition-all" />
-            </div>
-        </Link>
-    );
-}
-
 
 
 function DeviceCard({
@@ -65,9 +45,9 @@ function DeviceCard({
                 onClick={onToggle}
                 disabled={loading}
                 className={`px-6 py-2 rounded-full text-xs font-black tracking-widest transition-all ${isActive
-                        ? "bg-[#0EA5E9] text-black shadow-lg shadow-[#0EA5E9]/30 scale-105"
-                        : "bg-white/10 text-white/40 hover:bg-white/20"
-                    } ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
+                    ? "bg-[var(--color-accent)] text-black shadow-lg scale-105"
+                    : "bg-white/10 text-white/40 hover:bg-white/20"
+                } ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
             >
                 {loading ? "..." : state}
             </button>
@@ -92,7 +72,7 @@ function SliderCard({
         <div className="rounded-3xl bg-white/5 backdrop-blur-md border border-white/10 p-6 shadow-xl">
             <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-2xl bg-white/10 flex items-center justify-center text-[#FACC15]">
+                    <div className="h-12 w-12 rounded-2xl bg-white/10 flex items-center justify-center text-[var(--color-warning)]">
                         {icon}
                     </div>
                     <div>
@@ -100,7 +80,7 @@ function SliderCard({
                         <p className="text-white/40 text-sm font-mono">PIN {pin}</p>
                     </div>
                 </div>
-                <span className="text-[#0EA5E9] font-mono font-bold bg-[#0EA5E9]/10 px-3 py-1 rounded-lg text-xs">
+                <span className="text-[var(--color-accent)] font-mono font-bold bg-[var(--color-accent-soft)] px-3 py-1 rounded-lg text-xs">
                     {Math.round((value / 255) * 100)}%
                 </span>
             </div>
@@ -110,7 +90,7 @@ function SliderCard({
                 max="255"
                 value={value}
                 onChange={(e) => onChange(parseInt(e.target.value))}
-                className="w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer accent-[#0EA5E9]"
+                className="w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer accent-[var(--color-accent)]"
             />
         </div>
     );
@@ -144,15 +124,64 @@ export default function HubPage() {
     const [windowState, setWindowState] = useState(false);
     const [fanState, setFanState] = useState<'off' | 'forward' | 'reverse'>('off');
     const [fanLoading, setFanLoading] = useState(false);
-    const [yellowLed, setYellowLed] = useState(0);
+    const [orange_light, setOrangeLight] = useState(0);
     const [buzzer, setBuzzer] = useState(false);
 
     const [motion, setMotion] = useState(0);
     const [steam, setSteam] = useState(0);
     const [gas, setGas] = useState(0);
+    const [soil, setSoil] = useState(0);
+    const [light, setLight] = useState(0);
 
     const [syncSource, setSyncSource] = useState("arduino");
     const [syncTime, setSyncTime] = useState("");
+    
+    //for speech
+    const {transcript} = useSpeechContext();
+
+   useEffect(() =>{
+    if  (!transcript) return;
+
+
+    const text = transcript.toLowerCase();
+
+    if ((text.includes("on light") || text.includes("light on")) && !whiteLight){
+        toggleLight();}
+
+    if ((text.includes("off light") || text.includes("light off")) && whiteLight){
+        toggleLight();}
+
+if ((text.includes("open door")) && !door){
+        toggleDoor();}
+
+if ((text.includes("close door")) && door){
+        toggleDoor();}
+
+    if ((text.includes("open window")) && !windowState){
+        toggleWindow();}
+
+    if  ((text.includes("close window")) && windowState){
+        toggleWindow();}
+
+    if  ((text.includes("turn on buzzer") || text.includes("buzzer on")) && !buzzer){
+        toggleBuzzer();}
+
+    if ((text.includes("turn off buzzer") || text.includes("buzzer off")) && buzzer){
+        toggleBuzzer();}
+
+    if ((text.includes("on fan") || text.includes("fan on")) && fanState === "off"){
+    toggleFan();}
+
+    if ((text.includes("off fan") || text.includes("fan off")) && fanState !== "off"){
+    toggleFan();}
+
+    if (
+      (text.includes("reverse") || text.includes("switch fan direction")) &&
+          fanState !== "off"){
+    toggleReverse();
+
+    
+}}, [transcript, whiteLight, door, windowState, buzzer, fanState, fanLoading]);
 
     // Auth & Data Listeners
     useEffect(() => {
@@ -169,19 +198,24 @@ export default function HubPage() {
             if (!data) return;
 
             setWhiteLight(data.white_light?.state === "on");
-            setDoor(data.door?.state === "open");
-            setWindowState(data.window?.state === "open");
+            const doorState = String(data.door?.state ?? "").toLowerCase();
+            const windowStateValue = String(data.window?.state ?? "").toLowerCase();
+
+            setDoor(doorState === "open");
+            setWindowState(windowStateValue === "open");
             const fanINAOn = data.fan_INA?.state === "on";
             const fanINBOn = data.fan_INB?.state === "on";
             if (fanINAOn && !fanINBOn) setFanState('forward');
             else if (!fanINAOn && fanINBOn) setFanState('reverse');
             else setFanState('off');
-            setYellowLed(data.yellow_led?.value ?? 0);
+            setOrangeLight(data.orange_light?.value ?? 0);
             setBuzzer(data.buzzer?.state === "on");
 
             setMotion(data.telemetry?.motion ?? 0);
             setSteam(data.telemetry?.steam ?? 0);
             setGas(data.telemetry?.gas ?? 0);
+            setSoil(data.telemetry?.soil ?? 0);
+            setLight(data.telemetry?.light ?? 0);
 
             setSyncSource(data.sync?.lastSource ?? "arduino");
             if (data.sync?.lastUpdatedAt?.seconds) {
@@ -243,9 +277,9 @@ export default function HubPage() {
     };
     const toggleBuzzer = async () => await updateDoc(deviceRef, { "buzzer.state": buzzer ? "off" : "on" });
 
-    const handleYellowLedChange = async (val: number) => {
-        setYellowLed(val);
-        await updateDoc(deviceRef, { "yellow_led.value": val });
+    const handleOrangeLightChange = async (val: number) => {
+        setOrangeLight(val);
+        await updateDoc(deviceRef, { "orange_light.value": val });
     };
 
     return (
@@ -254,9 +288,9 @@ export default function HubPage() {
 
 <PageShell title={`${username}'s Hub`} subtitle="Control Center">
 
-                <VoiceTile />
+                {/* <VoiceTile /> */}
 
-                <h2 className="text-[10px] tracking-[0.4em] text-[#0EA5E9] font-black mt-4 mb-6 uppercase opacity-80">
+                <h2 className="text-[10px] tracking-[0.4em] text-[var(--color-accent)] font-black mt-4 mb-6 uppercase opacity-80">
                     Actuators
                 </h2>
 
@@ -277,7 +311,7 @@ export default function HubPage() {
                                 onClick={toggleFan}
                                 disabled={fanLoading}
                                 className={`px-4 py-2 rounded-full text-xs font-black tracking-widest transition-all ${fanState !== 'off'
-                                        ? "bg-[#0EA5E9] text-black shadow-lg shadow-[#0EA5E9]/30 scale-105"
+                                        ? "bg-[var(--color-accent)] text-black shadow-lg shadow-[var(--color-accent-glow)] scale-105"
                                         : "bg-white/10 text-white/40 hover:bg-white/20"
                                     } ${fanLoading ? "opacity-50 cursor-not-allowed" : ""}`}
                             >
@@ -286,7 +320,7 @@ export default function HubPage() {
                             <button
                                 onClick={toggleReverse}
                                 disabled={fanLoading}
-                                className={`px-4 py-2 rounded-full text-xs font-black tracking-widest transition-all bg-purple-500 text-white hover:bg-purple-600 ${fanLoading ? "opacity-50 cursor-not-allowed" : ""}`}
+                                className={`px-4 py-2 rounded-full text-xs font-black tracking-widest transition-all bg-[var(--color-secondary-accent)] text-white hover:opacity-90 ${fanLoading ? "opacity-50 cursor-not-allowed" : ""}`}
                             >
                                 {fanLoading ? "..." : "REVERSE"}
                             </button>
@@ -295,12 +329,12 @@ export default function HubPage() {
                     <DeviceCard title="Door" pin="9" icon={mdiDoor} state={door ? "OPEN" : "CLOSED"} onToggle={toggleDoor} />
                     <DeviceCard title="Window" pin="10" icon={mdiWeatherWindy} state={windowState ? "OPEN" : "CLOSED"} onToggle={toggleWindow} />
 
-                    <SliderCard title="Yellow LED" pin="5" icon={<Icon path={mdiLightbulb} size={1.5} />} value={yellowLed} onChange={handleYellowLedChange} />
+                    <SliderCard title="Orange Light" pin="5" icon={<Icon path={mdiLightbulb} size={1.5} />} value={orange_light} onChange={handleOrangeLightChange} />
 
                     <DeviceCard title="Buzzer" pin="3" icon={mdiCloud} state={buzzer ? "ON" : "OFF"} onToggle={toggleBuzzer} />
                 </div>
 
-                <h2 className="text-[10px] tracking-[0.4em] text-purple-400 font-black mt-12 mb-6 uppercase opacity-80">
+                <h2 className="text-[10px] tracking-[0.4em] text-[var(--color-secondary-accent)] font-black mt-12 mb-6 uppercase opacity-80">
                     Sensors
                 </h2>
 
@@ -308,11 +342,14 @@ export default function HubPage() {
                     <SensorCard title="Motion" value={motion} icon={<Icon path={mdiRun} size={1.375} />} />
                     <SensorCard title="Steam" value={steam} icon={<Icon path={mdiCloud} size={1.375} />} />
                     <SensorCard title="Gas" value={gas} icon={<Icon path={mdiAlert} size={1.375} />} />
+                    <SensorCard title="Soil" value={soil} icon={<Icon path={mdiCloud} size={1.375} />} unit="%" />
+                    <SensorCard title="Light" value={light} icon={<Icon path={mdiAlert} size={1.375} />} />
+
                 </div>
 
                 <div className="mt-12 rounded-3xl bg-white/5 border border-white/10 p-6">
                     <div className="flex items-center gap-3 mb-4">
-                        <Icon path={mdiRefresh} size={1.375} className="text-emerald-400" />
+                        <Icon path={mdiRefresh} size={1.375} className="text-[var(--color-accent)]" />
                         <p className="text-sm font-bold text-white tracking-widest uppercase">System Sync</p>
                     </div>
                     <div className="grid grid-cols-2 gap-4 text-xs">
