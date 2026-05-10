@@ -67,6 +67,7 @@ type DeviceKey =
   | 'window'
   | 'buzzer';
 
+// Defines the controllable smart house devices shown in the hub screen.
 const DEVICE_CONFIG: Array<{
   key: DeviceKey;
   label: string;
@@ -80,6 +81,7 @@ const DEVICE_CONFIG: Array<{
   { key: 'buzzer', label: 'Buzzer', icon: 'bullhorn-outline', interactive: true },
 ];
 
+// Defines sensor display settings and thresholds for active sensor states.
 const TELEMETRY_CONFIG: Array<{
   key: keyof Telemetry;
   label: string;
@@ -94,6 +96,7 @@ const TELEMETRY_CONFIG: Array<{
   { key: 'light', label: 'Light', icon: 'white-balance-sunny', threshold: 100 },
 ];
 
+// Animates the fan icon based on fan speed and direction.
 const AnimatedFanIcon = memo(
   ({
     speed,
@@ -176,6 +179,7 @@ const AnimatedFanIcon = memo(
   }
 );
 
+// Animates the motion sensor icon when motion is detected.
 const AnimatedWalkingIcon = memo(
   ({ active, color }: { active: boolean; color: string }) => {
     const progress = useRef(new Animated.Value(0)).current;
@@ -230,6 +234,7 @@ const AnimatedWalkingIcon = memo(
   }
 );
 
+// Animates the steam sensor icon when steam is detected.
 const AnimatedSteamIcon = memo(
   ({ active, color }: { active: boolean; color: string }) => {
     const progress = useRef(new Animated.Value(0)).current;
@@ -283,7 +288,7 @@ const AnimatedSteamIcon = memo(
     );
   }
 );
-
+// Animates the gas sensor icon when gas is detected.
 const AnimatedGasIcon = memo(
   ({ active, color }: { active: boolean; color: string }) => {
     const progress = useRef(new Animated.Value(0)).current;
@@ -338,6 +343,7 @@ const AnimatedGasIcon = memo(
   }
 );
 
+// Provides local demo device data when the app is used in guest mode.
 const MOCK_GUEST_DEVICES: DevicesDoc = {
   white_light: { pin: 'D13', state: 'off', value: null },
   fan_INA: { pin: 'D9', state: 'off', value: null },
@@ -353,6 +359,7 @@ const MOCK_GUEST_DEVICES: DevicesDoc = {
   },
 };
 
+// Main hub screen for monitoring sensors and controlling smart house hardware.
 export default function DatabaseScreen() {
   const { theme } = useAppTheme();
   const { isGuest } = useGuest();
@@ -367,7 +374,7 @@ export default function DatabaseScreen() {
 
   const orangeLedRaw = Number(deviceData?.orange_light?.value ?? 0);
 
-  // Check user admin role
+  // Checks whether the signed-in user has admin permission for debug data.
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (!user) {
@@ -400,6 +407,7 @@ export default function DatabaseScreen() {
     return unsubscribe;
   }, []);
 
+  // Subscribes to Firestore device data or loads local demo data for guest mode.
   useEffect(() => {
     if (isGuest) {
       setDeviceData(guestDeviceData);
@@ -430,12 +438,13 @@ export default function DatabaseScreen() {
     return () => unsubscribeData();
   }, [isGuest, guestDeviceData]);
 
+  // Converts the raw orange LED value from Arduino range to percentage.
   useEffect(() => {
     const clampedRaw = Math.max(0, Math.min(255, Number.isFinite(orangeLedRaw) ? orangeLedRaw : 0));
     setOrangeLedPercent(Math.round((clampedRaw / 255) * 100));
   }, [orangeLedRaw]);
 
-
+  // Toggles actuator states locally in guest mode or through Firestore when signed in.
   const toggleDevice = useCallback(
     async (deviceName: DeviceKey) => {
       const currentDevice = (isGuest ? guestDeviceData : deviceData)?.[deviceName] as HardwareDevice | undefined;
@@ -513,6 +522,7 @@ export default function DatabaseScreen() {
     [isGuest, deviceData, guestDeviceData]
   );
 
+    // Reverses fan direction with a short delay to protect the hardware state transition.
   const reverseFan = useCallback(async () => {
     if (isReversingFan) return;
 
@@ -581,7 +591,7 @@ export default function DatabaseScreen() {
     }
   }, [isGuest, deviceData, guestDeviceData, isReversingFan]);
 
-  // for speech recognition
+// Registers hub actions so speech recognition can control devices.
 useEffect(() => {
   registerHubController({
     toggleDevice: (id) => toggleDevice(id),
@@ -593,6 +603,7 @@ useEffect(() => {
   };
 }, [toggleDevice, reverseFan]);
 
+  // Updates orange LED brightness as a percentage and stores it as Arduino raw value.
   const updateOrangeLed = useCallback(async (percent: number) => {
     try {
       const clampedPercent = Math.max(0, Math.min(100, percent));
@@ -763,6 +774,7 @@ useEffect(() => {
   );
 }
 
+// Displays and controls orange LED brightness.
 function OrangeLedCard({
   percent,
   onChange,
@@ -817,6 +829,7 @@ function OrangeLedCard({
   );
 }
 
+// Formats Firestore timestamp data into a readable local time string.
 function formatTimestamp(timestamp?: { seconds?: number; nanoseconds?: number }) {
   if (!timestamp?.seconds) return 'Unavailable';
 
@@ -824,6 +837,7 @@ function formatTimestamp(timestamp?: { seconds?: number; nanoseconds?: number })
   return date.toLocaleString();
 }
 
+// Displays a label-value row for sync and debug information.
 function InfoRow({ label, value }: { label: string; value: string }) {
   const { theme } = useAppTheme();
   return (
@@ -834,6 +848,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+// Displays one telemetry sensor and its current active or inactive state.
 function TelemetryCard({
   sensorKey,
   label,
@@ -905,6 +920,7 @@ function TelemetryCard({
   );
 }
 
+// Displays one actuator card and handles toggle or reverse controls.
 function DeviceCard({
   icon,
   name,

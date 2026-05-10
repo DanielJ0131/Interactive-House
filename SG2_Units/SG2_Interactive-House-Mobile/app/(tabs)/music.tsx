@@ -41,6 +41,7 @@ const OCTAVE_KEYS = [
   { label: 'B', isBlack: false, whiteIndex: 6 },
 ] as const;
 
+// Converts a frequency value into a readable musical note name for the piano display.
 const frequencyToNoteName = (frequency: number) => {
   if (!Number.isFinite(frequency) || frequency <= 0) {
     return 'Rest';
@@ -51,6 +52,7 @@ const frequencyToNoteName = (frequency: number) => {
   return NOTE_NAMES[noteIndex] ?? 'Rest';
 };
 
+// Displays a visual mini piano and highlights the currently active note.
 function FakePiano({
   frequencies,
   activeNoteIndex,
@@ -184,6 +186,7 @@ function FakePiano({
   );
 }
 
+// Main music screen for viewing, editing, and playing melodies.
 export default function MusicScreen() {
   const { theme } = useAppTheme();
   const speedOptions = [0.5, 1, 1.5, 2];
@@ -225,6 +228,7 @@ export default function MusicScreen() {
   const activeUserEmail = auth.currentUser?.email ?? 'none';
   const activeProjectId = db.app.options.projectId ?? 'unknown';
 
+  // Updates melody state from a Firestore snapshot and selects the active melody.
   const hydrateMelodiesFromSnapshot = (nextMelodies: Melody[]) => {
     setMelodies(nextMelodies);
 
@@ -244,6 +248,7 @@ export default function MusicScreen() {
     });
   };
 
+    // Turns one melody on while ensuring every other melody is turned off.
   const setOnlyOneMelodyOn = async (melodyId: string, nextState: 'on' | 'off') => {
     setMelodies((prev) =>
       prev.map((melody) => ({
@@ -307,6 +312,7 @@ export default function MusicScreen() {
     }
   };
 
+  // Synchronizes a single melody state locally and in Firestore when allowed.
   const syncMelodyState = async (melodyId: string, nextState: 'on' | 'off') => {
     setMelodies((prev) =>
       prev.map((melody) => ({
@@ -457,6 +463,7 @@ export default function MusicScreen() {
     return unsubscribe;
   }, [isGuest, isAuthReady, isAuthenticated]);
 
+  // Parses user-entered frequency text into a playable melody sequence.
   const parseFrequencies = (value: string): number[] => {
     const tokens = value
       .split(/[,\s]+/)
@@ -486,15 +493,17 @@ export default function MusicScreen() {
     return sequence;
   };
 
+  // Parses user-entered Arduino delay values into numbers.
   const parseNoteDelays = (value: string): number[] =>
     value
       .split(/[\s,]+/)
       .map((token) => Number(token.trim()))
       .filter((delay) => Number.isFinite(delay) && delay >= 0);
-
+  // Formats melody frequencies as comma-separated text for display or editing.
   const formatMelodySequence = (sequence: number[]) =>
     sequence.map((freq) => (freq <= 0 ? '0' : String(freq))).join(', ');
 
+  // Aligns frequency and delay strings so editing long sequences is easier.
   const formatAlignedFrequencyDelayStrings = (frequencies: number[], delays: number[]) => {
     const length = Math.max(frequencies.length, delays.length);
     const frequencyTokens: string[] = [];
@@ -547,6 +556,7 @@ export default function MusicScreen() {
     }
   }, [melodies, selectedMelody?.id]);
 
+  // Validates and saves a new melody to Firestore.
   const handleAddMelody = async () => {
     if (isSavingMelody) return;
 
@@ -630,6 +640,7 @@ export default function MusicScreen() {
     }
   };
 
+  // Deletes a melody from Firestore and updates local selection state.
   const performDeleteMelody = async (melody: Melody) => {
     try {
       setDeletingMelodyId(melody.id);
@@ -668,6 +679,7 @@ export default function MusicScreen() {
     }
   };
 
+  // Validates edited melody values and saves updates to Firestore.
   const handleUpdateMelody = async () => {
     if (isUpdatingMelody || !selectedMelody) return;
 
@@ -744,6 +756,7 @@ export default function MusicScreen() {
     }
   };
 
+  // Confirms and starts the melody deletion flow.
   const handleDeleteMelody = (melody: Melody) => {
     if (deletingMelodyId) return;
 
@@ -778,7 +791,7 @@ export default function MusicScreen() {
     ]);
   };
 
-  // Stop all playing oscillators
+  // Stops playback, clears pending timers, and resets active melody state.
   const stopMelody = () => {
     const activeMelodyId = playbackStateRef.current.melody?.id;
 
@@ -810,7 +823,7 @@ export default function MusicScreen() {
     };
   }, []);
 
-  // Play melody with frequencies
+  // Plays the selected melody note by note using the active instrument and playback speed.
   const playMelody = async (melody: Melody) => {
     try {
       // Stop any currently playing melody
@@ -901,7 +914,7 @@ export default function MusicScreen() {
       setCurrentNoteIndex(-1);
     }
   };
-// fpr speech
+// Registers this screen with the speech controller so voice commands can control music.
 useEffect(() => {
   registerMusicController({
     play: () => {
@@ -947,6 +960,7 @@ useEffect(() => {
   };
 }, [selectedMelody, melodies]);
 
+  // Selects a melody and switches playback immediately if another melody is already playing.
   const handleSelectMelody = async (melody: Melody) => {
     setSelectedMelody(melody);
 
@@ -957,6 +971,7 @@ useEffect(() => {
     }
   };
 
+  // Renders one melody card in the horizontal melody picker.
   const renderMelodyItem = (item: Melody) => (
     <Pressable
       key={item.id}

@@ -274,8 +274,8 @@ Examples:
       }, 100);
     }
   };
-
-  // Guest mode: show info message, disable controls
+  
+  // Prevents guest users from controlling smart house devices.
   if (isGuest) {
     return (
       <View style={{ backgroundColor: theme.colors.background }} className="flex-1 px-6 py-8 items-center justify-center">
