@@ -38,6 +38,7 @@ type AICommand =
       reply: string;
     };
 
+// Defines valid states each smart house device can be set to.
 const DEVICE_RULES: Record<DeviceKey, DeviceState[]> = {
   white_light: ["on", "off"],
   fan_INA: ["on", "off"],
@@ -46,6 +47,7 @@ const DEVICE_RULES: Record<DeviceKey, DeviceState[]> = {
   window: ["open", "closed"],
 };
 
+// Validates if Gemini returned a properly structured command.
 function isValidCommand(data: unknown): data is AICommand {
   if (!data || typeof data !== "object") return false;
 
@@ -76,6 +78,7 @@ function isValidCommand(data: unknown): data is AICommand {
   return false;
 }
 
+// Extracts JSON commands from AI responses.
 function extractJson(text: string): AICommand | null {
   try {
     const parsed = JSON.parse(text);
@@ -93,6 +96,7 @@ function extractJson(text: string): AICommand | null {
   }
 }
 
+// Updates Firestore so physical smart house devices can react.
 async function executeDeviceCommand(device: DeviceKey, state: DeviceState) {
   const allowedStates = DEVICE_RULES[device];
 
@@ -107,6 +111,7 @@ async function executeDeviceCommand(device: DeviceKey, state: DeviceState) {
   });
 }
 
+// Main AI screen for chat-based smart house control.
 export default function AiScreen() {
   const { theme } = useAppTheme();
   const { isGuest } = useGuest();
@@ -118,6 +123,7 @@ export default function AiScreen() {
     ReturnType<ReturnType<typeof getGeminiModel>["startChat"]> | null
   >(null);
 
+    // Creates and reuses a persistent Gemini chat session.
   const getChatSession = () => {
     if (chatSessionRef.current) return chatSessionRef.current;
 
@@ -174,6 +180,7 @@ Examples:
     return chatSessionRef.current;
   };
 
+  // Adds AI responses to the chat interface.
   const addAiMessage = (text: string) => {
     setMessages((prev) => [
       ...prev,
@@ -184,7 +191,7 @@ Examples:
       },
     ]);
   };
-
+  // Handles user input, AI responses, and device execution.
   const handleSend = async () => {
     const trimmed = input.trim();
     if (!trimmed || loading) return;
@@ -242,7 +249,8 @@ Examples:
       }, 100);
     }
   };
-
+  
+  // Prevents guest users from controlling smart house devices.
   if (isGuest) {
     return (
       <View style={{ backgroundColor: theme.colors.background }} className="flex-1 px-6 py-8 items-center justify-center">
