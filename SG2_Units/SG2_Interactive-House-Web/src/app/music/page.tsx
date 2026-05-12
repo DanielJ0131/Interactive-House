@@ -26,6 +26,17 @@ const SPEED_MULTIPLIERS = {
     FAST: 0.5,
 };
 
+type InstrumentOption = OscillatorType | "electric piano";
+
+const INSTRUMENT_OPTIONS: { label: string; value: InstrumentOption }[] = [
+    { label: "E-PIANO", value: "electric piano" },
+    { label: "SINE", value: "sine" },
+    { label: "SQUARE", value: "square" },
+    { label: "SAW", value: "sawtooth" },
+];
+
+const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+
 const PIANO_NOTES = [
     { label: "C", freq: 262 },
     { label: "D", freq: 294 },
@@ -45,18 +56,231 @@ const PIANO_NOTES = [
     { label: "D", freq: 1175 },
 ];
 
+const PIANO_RANGE = {
+    min: Math.min(...PIANO_NOTES.map((note) => note.freq)),
+    max: Math.max(...PIANO_NOTES.map((note) => note.freq)),
+};
+
+const toNumberArray = (value: unknown): number[] => {
+    if (Array.isArray(value)) {
+        return value.map((item) => Number(item)).filter((item) => Number.isFinite(item));
+    }
+
+    if (value && typeof value === "object") {
+        return Object.values(value as Record<string, unknown>)
+            .map((item) => Number(item))
+            .filter((item) => Number.isFinite(item));
+    }
+
+    return [];
+};
+
+const frequencyToNoteName = (frequency: number | null): string | null => {
+    if (frequency === null || !Number.isFinite(frequency) || frequency <= 0) {
+        return null;
+    }
+
+    const midiNumber = Math.round(69 + 12 * Math.log2(frequency / 440));
+    const noteIndex = ((midiNumber % 12) + 12) % 12;
+    const octave = Math.floor(midiNumber / 12) - 1;
+    const noteName = NOTE_NAMES[noteIndex];
+    return noteName ? `${noteName}${octave}` : null;
+};
+
+const frequencyToNoteClass = (frequency: number | null): string | null => {
+    if (frequency === null || !Number.isFinite(frequency) || frequency <= 0) {
+        return null;
+    }
+
+    const midiNumber = Math.round(69 + 12 * Math.log2(frequency / 440));
+    const noteIndex = ((midiNumber % 12) + 12) % 12;
+    return NOTE_NAMES[noteIndex] ?? null;
+};
+
+const getSharpNoteName = (whiteLabel: string, whiteNoteName: string | null): string | null => {
+    if (!whiteNoteName) return null;
+
+    const octaveMatch = whiteNoteName.match(/(-?\d+)$/);
+    if (!octaveMatch) return null;
+
+    return `${whiteLabel}#${octaveMatch[1]}`;
+};
+
+type PianoSelection = { type: "white" | "black"; index: number } | null;
+
+const SEMITONE_RATIO = Math.pow(2, 1 / 12);
+
+const getPianoSelection = (frequency: number | null): PianoSelection => {
+    const activeNoteName = frequencyToNoteName(frequency);
+    const activeNoteClass = frequencyToNoteClass(frequency);
+
+    if (!activeNoteClass) return null;
+
+    for (let i = 0; i < PIANO_NOTES.length; i += 1) {
+        const note = PIANO_NOTES[i];
+        const whiteNoteName = frequencyToNoteName(note.freq);
+        if (whiteNoteName && whiteNoteName === activeNoteName) {
+            return { type: "white", index: i };
+        }
+
+        const blackNoteName = ["C", "D", "F", "G", "A"].includes(note.label)
+            ? getSharpNoteName(note.label, whiteNoteName)
+            : null;
+        if (blackNoteName && blackNoteName === activeNoteName) {
+            return { type: "black", index: i };
+        }
+    }
+
+    const isSharp = activeNoteClass.includes("#");
+    const baseLabel = isSharp ? activeNoteClass.replace("#", "") : activeNoteClass;
+    const candidates = PIANO_NOTES.map((note, index) => ({ note, index }))
+        .filter(({ note, index }) => {
+            if (note.label !== baseLabel) return false;
+            if (isSharp) {
+                return ["C", "D", "F", "G", "A"].includes(note.label) && index < PIANO_NOTES.length - 1;
+            }
+            return true;
+        });
+
+    if (candidates.length === 0) return null;
+
+    const targetFrequency = frequency ?? candidates[0].note.freq;
+    const closest = candidates.reduce((best, current) => {
+        const currentFreq = isSharp
+            ? current.note.freq * SEMITONE_RATIO
+            : current.note.freq;
+        const bestFreq = isSharp
+            ? best.note.freq * SEMITONE_RATIO
+            : best.note.freq;
+        return Math.abs(currentFreq - targetFrequency) < Math.abs(bestFreq - targetFrequency)
+            ? current
+            : best;
+    });
+
+    return { type: isSharp ? "black" : "white", index: closest.index };
+};
+
+const initializeReverbFx = (audioCtx: AudioContext) => {
+    const convolver = audioCtx.createConvolver();
+    const wetGain = audioCtx.createGain();
+    const dryGain = audioCtx.createGain();
+
+    const durationSeconds = 1.8;
+    const decay = 2.8;
+    const sampleRate = audioCtx.sampleRate;
+    const impulseLength = Math.floor(sampleRate * durationSeconds);
+    const impulseBuffer = audioCtx.createBuffer(2, impulseLength, sampleRate);
+
+    for (let channel = 0; channel < impulseBuffer.numberOfChannels; channel += 1) {
+        const channelData = impulseBuffer.getChannelData(channel);
+        for (let i = 0; i < impulseLength; i += 1) {
+            const envelope = Math.pow(1 - i / impulseLength, decay);
+            channelData[i] = (Math.random() * 2 - 1) * envelope;
+        }
+    }
+
+    convolver.buffer = impulseBuffer;
+    wetGain.gain.value = 0.36;
+    dryGain.gain.value = 0.72;
+
+    convolver.connect(wetGain);
+    wetGain.connect(audioCtx.destination);
+    dryGain.connect(audioCtx.destination);
+
+    return { convolver, wetGain, dryGain };
+};
+
+const playInstrumentNote = (params: {
+    audioCtx: AudioContext;
+    instrument: InstrumentOption;
+    frequency: number;
+    noteLength: number;
+    noteStartTime: number;
+    reverb: { convolver: ConvolverNode; dryGain: GainNode };
+}) => {
+    const {
+        audioCtx,
+        instrument,
+        frequency,
+        noteLength,
+        noteStartTime,
+        reverb,
+    } = params;
+
+    const safeLength = Math.max(0.05, noteLength);
+
+    if (instrument === "electric piano") {
+        const masterGain = audioCtx.createGain();
+        masterGain.connect(reverb.dryGain);
+        masterGain.connect(reverb.convolver);
+
+        masterGain.gain.setValueAtTime(0.0001, noteStartTime);
+        masterGain.gain.exponentialRampToValueAtTime(0.42, noteStartTime + 0.008);
+        masterGain.gain.exponentialRampToValueAtTime(
+            0.16,
+            noteStartTime + Math.min(safeLength * 0.35, 0.11)
+        );
+        masterGain.gain.exponentialRampToValueAtTime(0.0001, noteStartTime + safeLength);
+
+        const partials: Array<{ ratio: number; amp: number; type: OscillatorType; detune?: number }> = [
+            { ratio: 1, amp: 1, type: "triangle", detune: -2 },
+            { ratio: 1, amp: 0.55, type: "triangle", detune: 3 },
+            { ratio: 2, amp: 0.3, type: "sine" },
+            { ratio: 3, amp: 0.12, type: "sine" },
+        ];
+
+        partials.forEach((partial) => {
+            const partialOsc = audioCtx.createOscillator();
+            const partialGain = audioCtx.createGain();
+
+            partialOsc.type = partial.type;
+            partialOsc.frequency.value = frequency * partial.ratio;
+            partialOsc.detune.value = partial.detune ?? 0;
+            partialGain.gain.value = partial.amp;
+
+            partialOsc.connect(partialGain);
+            partialGain.connect(masterGain);
+
+            partialOsc.start(noteStartTime);
+            partialOsc.stop(noteStartTime + safeLength);
+        });
+
+        return;
+    }
+
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+
+    oscillator.type = instrument;
+    oscillator.frequency.value = frequency;
+    oscillator.connect(gainNode);
+    gainNode.connect(reverb.dryGain);
+    gainNode.connect(reverb.convolver);
+
+    gainNode.gain.setValueAtTime(0.0001, noteStartTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.3, noteStartTime + 0.005);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, noteStartTime + safeLength);
+
+    oscillator.start(noteStartTime);
+    oscillator.stop(noteStartTime + safeLength);
+};
+
 export default function MusicPage() {
     const [songs, setSongs] = useState<Song[]>([]);
     const [activeSongId, setActiveSongId] = useState<string | null>(null);
     const [speedMultiplier, setSpeedMultiplier] = useState<number>(SPEED_MULTIPLIERS.NORMAL);
+    const [instrument, setInstrument] = useState<InstrumentOption>("electric piano");
     const audioCtxRef = useRef<AudioContext | null>(null);
+    const audioReverbRef = useRef<{ convolver: ConvolverNode; wetGain: GainNode; dryGain: GainNode } | null>(null);
     const speedMultiplierRef = useRef(SPEED_MULTIPLIERS.NORMAL);
+    const instrumentRef = useRef<InstrumentOption>("electric piano");
     const [activeFrequency, setActiveFrequency] = useState<number | null>(null);
 
     const stopMusic = () => {
         if (audioCtxRef.current) {
             audioCtxRef.current.close();
             audioCtxRef.current = null;
+            audioReverbRef.current = null;
             setActiveSongId(null);
             setActiveFrequency(null);
         }
@@ -77,36 +301,37 @@ export default function MusicPage() {
         const SelectedContext = WinAudioContext.AudioContext || WinAudioContext.webkitAudioContext;
         const audioCtx = new SelectedContext();
 
+        if (audioCtx.state === "suspended") {
+            await audioCtx.resume();
+        }
+
         audioCtxRef.current = audioCtx;
+        audioReverbRef.current = initializeReverbFx(audioCtx);
         setActiveSongId(songId);
 
         for (let i = 0; i < frequencies.length; i++) {
-            if (!audioCtxRef.current) break;
+            if (!audioCtxRef.current || audioCtxRef.current !== audioCtx) break;
 
-            const freq = frequencies[i];
-            setActiveFrequency(freq);
+            const reverb = audioReverbRef.current;
+            if (!reverb || reverb.convolver.context !== audioCtx) break;
+
+            const freq = frequencies[i] ?? 0;
+            const normalizedFreq = Number.isFinite(freq) ? freq : 0;
+            setActiveFrequency(normalizedFreq > 0 ? normalizedFreq : null);
 
             const baseDelay = noteDelays[i] ?? 300;
             const delay = baseDelay * speedMultiplierRef.current;
+            const noteLength = delay / 1000;
 
-            if (freq > 0) {
-                const oscillator = audioCtx.createOscillator();
-                const gainNode = audioCtx.createGain();
-
-                oscillator.type = "sine";
-                oscillator.frequency.setValueAtTime(freq, audioCtx.currentTime);
-
-                gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(
-                    0.0001,
-                    audioCtx.currentTime + delay / 1000
-                );
-
-                oscillator.connect(gainNode);
-                gainNode.connect(audioCtx.destination);
-
-                oscillator.start();
-                oscillator.stop(audioCtx.currentTime + delay / 1000);
+            if (normalizedFreq > 0) {
+                playInstrumentNote({
+                    audioCtx,
+                    instrument: instrumentRef.current,
+                    frequency: normalizedFreq,
+                    noteLength,
+                    noteStartTime: audioCtx.currentTime,
+                    reverb,
+                });
             }
 
             await new Promise(resolve => setTimeout(resolve, delay));
@@ -121,7 +346,17 @@ export default function MusicPage() {
     useEffect(() => {
     const fetchMusic = async () => {
         const querySnapshot = await getDocs(collection(db, "music"));
-        const musicData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Song[];
+        const musicData = querySnapshot.docs.map((doc) => {
+            const data = doc.data() as Record<string, unknown>;
+
+            return {
+                id: doc.id,
+                name: typeof data.name === "string" && data.name ? data.name : doc.id,
+                artist: typeof data.artist === "string" && data.artist ? data.artist : "Unknown",
+                frequencies: toNumberArray(data.frequencies),
+                noteDelays: toNumberArray(data.noteDelays),
+            } as Song;
+        });
         setSongs(musicData);
     };
 
@@ -130,17 +365,11 @@ export default function MusicPage() {
     return () => stopMusic();
     }, []);
 
-    const getClosestPianoNote = (frequency: number | null) => {
-        if (frequency === null) return null;
+    useEffect(() => {
+        instrumentRef.current = instrument;
+    }, [instrument]);
 
-        return PIANO_NOTES.reduce((closest, note) => {
-           return Math.abs(note.freq - frequency) < Math.abs(closest.freq - frequency)
-              ? note
-              : closest;
-        });
-};
-
-const closestPianoNote = getClosestPianoNote(activeFrequency);
+const pianoSelection = getPianoSelection(activeFrequency);
 
     return (
         <main className="min-h-screen bg-transparent">
@@ -158,23 +387,41 @@ const closestPianoNote = getClosestPianoNote(activeFrequency);
                         Back to hub
                     </Link>
 
-                    {/* SPEED SELECTOR - HUB STYLE */}
-                    <div className="flex bg-black/20 p-1.5 rounded-2xl border border-white/5 backdrop-blur-lg">
-                        {Object.entries(SPEED_MULTIPLIERS).map(([label, value]) => (
-                            <button
-                                key={label}
-                                onClick={() => {
-                                    setSpeedMultiplier(value);
-                                    speedMultiplierRef.current = value;
-                                }}
-                                className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all ${speedMultiplier === value
-                                        ? 'bg-[var(--color-accent)] text-black shadow-lg scale-105'
-                                        : 'text-white/40 hover:text-white/70'
-                                    }`}
-                            >
-                                {label}
-                            </button>
-                        ))}
+                    <div className="flex flex-col gap-3 items-end">
+                        {/* SPEED SELECTOR - HUB STYLE */}
+                        <div className="flex bg-black/20 p-1.5 rounded-2xl border border-white/5 backdrop-blur-lg">
+                            {Object.entries(SPEED_MULTIPLIERS).map(([label, value]) => (
+                                <button
+                                    key={label}
+                                    onClick={() => {
+                                        setSpeedMultiplier(value);
+                                        speedMultiplierRef.current = value;
+                                    }}
+                                    className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all ${speedMultiplier === value
+                                            ? 'bg-[var(--color-accent)] text-black shadow-lg scale-105'
+                                            : 'text-white/40 hover:text-white/70'
+                                        }`}
+                                >
+                                    {label}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* INSTRUMENT SELECTOR */}
+                        <div className="flex bg-black/20 p-1.5 rounded-2xl border border-white/5 backdrop-blur-lg">
+                            {INSTRUMENT_OPTIONS.map((option) => (
+                                <button
+                                    key={option.value}
+                                    onClick={() => setInstrument(option.value)}
+                                    className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all ${instrument === option.value
+                                            ? 'bg-[var(--color-accent)] text-black shadow-lg scale-105'
+                                            : 'text-white/40 hover:text-white/70'
+                                        }`}
+                                >
+                                    {option.label}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </div>
 
@@ -203,28 +450,36 @@ const closestPianoNote = getClosestPianoNote(activeFrequency);
                             className="grid gap-1"
                             style={{ gridTemplateColumns: "repeat(16, minmax(0, 1fr))" }}
                         >
-                            {PIANO_NOTES.map((note, index) => (
+                            {PIANO_NOTES.map((note, index) => {
+                                const isWhiteActive = pianoSelection?.type === "white" && pianoSelection.index === index;
+                                const isBlackActive = pianoSelection?.type === "black" && pianoSelection.index === index;
+
+                                return (
                                 <div
                                     key={`${note.label}-${index}`}
                                     className={`relative h-28 rounded-b-lg border border-white/10 transition-all flex items-end justify-center pb-2 text-xs font-black ${
-                                        closestPianoNote?.freq === note.freq
+                                        isWhiteActive
                                             ? "bg-[var(--color-accent)] text-black shadow-lg"
                                             : "bg-white text-black/60"
                                     }`}
                                  >
                                 {["C", "D", "F", "G", "A"].includes(note.label) && index !== PIANO_NOTES.length - 1 && (
-                                    <div className={`absolute -top-1 right-[-12px] z-10 w-5 h-14 rounded-b-md shadow-lg transition-all ${
-                                        activeFrequency !== null &&
-                                        activeFrequency > note.freq &&
-                                        activeFrequency < PIANO_NOTES[index + 1].freq
-                                        ? "bg-[var(--color-accent)] brightness-110": "bg-black" }`}
-                                    
-                                    />
+                                    <div className={`absolute -top-1 right-[-12px] z-10 w-5 h-14 rounded-b-md shadow-lg transition-all flex items-center justify-center ${
+                                        isBlackActive
+                                        ? "bg-[var(--color-accent)] brightness-110"
+                                        : "bg-black"
+                                    }`}
+                                    >
+                                        <span className="text-[8px] font-black text-white">
+                                            {note.label}#
+                                        </span>
+                                    </div>
                                 )}
 
                                     {note.label}
                                 </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
                 </div>
