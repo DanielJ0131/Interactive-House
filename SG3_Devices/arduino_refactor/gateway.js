@@ -1,4 +1,5 @@
 const admin = require("firebase-admin");
+const net = require("net");
 const { SerialPort } = require("serialport");
 
 require("dotenv").config({ path: "config/.env" });
@@ -13,6 +14,10 @@ const MUSIC_KEEP_LAST_ON = ["1", "true", "yes", "on"].includes(musicKeepLastOnRa
 const musicStopGraceMsRaw = Number(process.env.MUSIC_STOP_GRACE_MS ?? 0);
 const MUSIC_STOP_GRACE_MS = Number.isFinite(musicStopGraceMsRaw)
     ? Math.max(0, musicStopGraceMsRaw)
+    : 0;
+const musicWriteDelayMsRaw = Number(process.env.MUSIC_WRITE_DELAY_MS ?? 5);
+const MUSIC_WRITE_DELAY_MS = Number.isFinite(musicWriteDelayMsRaw)
+    ? Math.max(0, musicWriteDelayMsRaw)
     : 0;
 
 // FIREBASE SETUP
@@ -38,21 +43,46 @@ const musicCollectionRef = !isMusicDocPath && watchMusicPath
 // SERIAL
 const serialPath = process.env.SERIAL_PORT;
 const serialBaudRate = Number(process.env.SERIAL_BAUD);
+const isTcpSerial = typeof serialPath === "string" && serialPath.startsWith("tcp://");
 
 if (!serialPath) {
     console.error("Missing SERIAL_PORT in config/.env");
     process.exit(1);
 }
 
-if (!Number.isFinite(serialBaudRate) || serialBaudRate <= 0) {
+if (!isTcpSerial && (!Number.isFinite(serialBaudRate) || serialBaudRate <= 0)) {
     console.error("Invalid SERIAL_BAUD in config/.env");
     process.exit(1);
 }
 
-const port = new SerialPort({
-    path: serialPath,
-    baudRate: serialBaudRate,
-});
+let port = null;
+
+if (isTcpSerial) {
+    let host = "";
+    let portNumber = 0;
+
+    try {
+        const url = new URL(serialPath);
+        host = url.hostname;
+        portNumber = Number(url.port);
+    } catch (error) {
+        console.error("Invalid SERIAL_PORT tcp url in config/.env");
+        process.exit(1);
+    }
+
+    if (!host || !Number.isFinite(portNumber) || portNumber <= 0) {
+        console.error("Invalid SERIAL_PORT tcp url in config/.env");
+        process.exit(1);
+    }
+
+    port = net.createConnection({ host, port: portNumber });
+    port.setNoDelay(true);
+} else {
+    port = new SerialPort({
+        path: serialPath,
+        baudRate: serialBaudRate,
+    });
+}
 
 // BUFFER
 let buffer = "";
@@ -62,9 +92,10 @@ let lastCommands = {};
 let lastDeviceState = {};
 let lastTelemetry = {};
 let lastFirestoreCommandState = {};
-let lastMusicState = { notesKey: "", play: null };
+let lastMusicState = { notesKey: "", play: null, updatedAt: 0 };
 let lastMusicDocId = null;
 let pendingMusicStop = null;
+let musicSendQueue = Promise.resolve();
 
 // HELPERS
 function normalize(v) {
@@ -308,6 +339,25 @@ function writeLine(cmd) {
     console.log("→", cmd);
 }
 
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function writeLineAsync(cmd, delayMs = 0) {
+    writeLine(cmd);
+    if (delayMs > 0) {
+        await sleep(delayMs);
+    }
+}
+
+function enqueueMusicSend(task) {
+    musicSendQueue = musicSendQueue
+        .then(task)
+        .catch((error) => {
+            console.error("Music send error:", error);
+        });
+}
+
 //  FIREBASE COMMANDS --> SERIAL DATA TO ARDUINO
 function sendCommand(type, state) {
     state = normalize(state);
@@ -379,6 +429,8 @@ if (musicDocRef) {
         const { notes, play } = getMusicState(data);
         const notesKey = serializeNotes(notes);
         const notesChanged = notesKey !== lastMusicState.notesKey;
+        const updatedAt = toTimestampMillis(data?.updatedAt);
+        const updatedAtChanged = updatedAt > (lastMusicState.updatedAt ?? 0);
 
         const hasPlayValue = play !== null;
         let nextPlay = play;
@@ -388,31 +440,36 @@ if (musicDocRef) {
 
         const playChanged = hasPlayValue && play !== lastMusicState.play;
 
-        if (!notesChanged && !playChanged) return;
+        if (!notesChanged && !playChanged && !updatedAtChanged) return;
 
         console.log("Firestore music update");
-
-        if (notesChanged) {
-            writeLine("C");
-
-            for (const note of notes) {
-                writeLine(`A:${note.note},${note.duration}`);
-            }
-
-            if (notes.length > 0) {
-                writeLine("E");
-            }
-        }
-
-        if (nextPlay !== null && (notesChanged || playChanged)) {
-            writeLine(nextPlay ? "P:1" : "P:0");
-        }
 
         lastMusicState = {
             notesKey,
             play: hasPlayValue ? play : nextPlay,
+            updatedAt,
         };
         lastMusicDocId = doc.id;
+
+        enqueueMusicSend(async () => {
+            const shouldReload = notesChanged || updatedAtChanged;
+
+            if (shouldReload) {
+                await writeLineAsync("C", MUSIC_WRITE_DELAY_MS);
+
+                for (const note of notes) {
+                    await writeLineAsync(`A:${note.note},${note.duration}`, MUSIC_WRITE_DELAY_MS);
+                }
+
+                if (notes.length > 0) {
+                    await writeLineAsync("E", MUSIC_WRITE_DELAY_MS);
+                }
+            }
+
+            if (nextPlay !== null && (shouldReload || playChanged)) {
+                await writeLineAsync(nextPlay ? "P:1" : "P:0", MUSIC_WRITE_DELAY_MS);
+            }
+        });
     });
 }
 
@@ -478,32 +535,38 @@ if (musicCollectionRef) {
         const notesChanged = isNewSong || notesKey !== lastMusicState.notesKey;
         const hasPlayValue = play !== null;
         const playChanged = isNewSong || (hasPlayValue && play !== lastMusicState.play);
+        const updatedAtChanged = active.updatedAt > (lastMusicState.updatedAt ?? 0);
 
-        if (!notesChanged && !playChanged) return;
+        if (!notesChanged && !playChanged && !updatedAtChanged) return;
 
         console.log("Firestore music update");
-
-        if (notesChanged) {
-            writeLine("C");
-
-            for (const note of notes) {
-                writeLine(`A:${note.note},${note.duration}`);
-            }
-
-            if (notes.length > 0) {
-                writeLine("E");
-            }
-        }
-
-        if (play !== null && (notesChanged || playChanged)) {
-            writeLine(play ? "P:1" : "P:0");
-        }
 
         lastMusicState = {
             notesKey,
             play: hasPlayValue ? play : lastMusicState.play,
+            updatedAt: active.updatedAt,
         };
         lastMusicDocId = id;
+
+        enqueueMusicSend(async () => {
+            const shouldReload = notesChanged || updatedAtChanged;
+
+            if (shouldReload) {
+                await writeLineAsync("C", MUSIC_WRITE_DELAY_MS);
+
+                for (const note of notes) {
+                    await writeLineAsync(`A:${note.note},${note.duration}`, MUSIC_WRITE_DELAY_MS);
+                }
+
+                if (notes.length > 0) {
+                    await writeLineAsync("E", MUSIC_WRITE_DELAY_MS);
+                }
+            }
+
+            if (play !== null && (shouldReload || playChanged)) {
+                await writeLineAsync(play ? "P:1" : "P:0", MUSIC_WRITE_DELAY_MS);
+            }
+        });
     });
 }
 
@@ -645,9 +708,15 @@ port.on("data", async (data) => {
 });
 
 // SERIAL EVENTS
-port.on("open", () => {
-    console.log(" Serial connected");
-});
+if (isTcpSerial) {
+    port.on("connect", () => {
+        console.log(" Serial connected");
+    });
+} else {
+    port.on("open", () => {
+        console.log(" Serial connected");
+    });
+}
 
 port.on("error", (err) => {
     console.error(" Serial error:", err.message);

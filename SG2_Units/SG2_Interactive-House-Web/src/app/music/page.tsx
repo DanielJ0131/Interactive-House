@@ -346,13 +346,37 @@ export default function MusicPage() {
     const instrumentRef = useRef<InstrumentOption>("electric piano");
     const [activeFrequency, setActiveFrequency] = useState<number | null>(null);
 
-    const stopMusic = () => {
+    const updatePlaybackState = async (songId: string, isPlaying: boolean) => {
+        if (!songId || !isAuthenticated || !isAdmin) {
+            return;
+        }
+
+        try {
+            await setDoc(
+                doc(db, "music", songId),
+                {
+                    state: isPlaying ? "on" : "off",
+                    updatedAt: new Date().toISOString(),
+                },
+                { merge: true }
+            );
+        } catch (error) {
+            console.error("Error updating melody playback state:", error);
+        }
+    };
+
+    const stopMusic = (songId?: string) => {
         if (audioCtxRef.current) {
             audioCtxRef.current.close();
             audioCtxRef.current = null;
             audioReverbRef.current = null;
             setActiveSongId(null);
             setActiveFrequency(null);
+        }
+
+        const idToStop = songId ?? activeSongId;
+        if (idToStop) {
+            void updatePlaybackState(idToStop, false);
         }
     };
 
@@ -362,6 +386,7 @@ export default function MusicPage() {
         noteDelays: number[],
     ) => {
         stopMusic();
+        void updatePlaybackState(songId, true);
 
         const WinAudioContext = (window as unknown as {
             AudioContext: typeof AudioContext;
@@ -410,6 +435,7 @@ export default function MusicPage() {
         if (audioCtxRef.current === audioCtx) {
             setActiveSongId(null);
             setActiveFrequency(null);
+            void updatePlaybackState(songId, false);
         }
     };
 
@@ -843,7 +869,9 @@ const pianoSelection = getPianoSelection(activeFrequency);
 
                             {/* ACTION BUTTON */}
                             <button
-                                onClick={() => activeSongId === song.id ? stopMusic() : playMusic(song.id, song.frequencies, song.noteDelays)}
+                                onClick={() => activeSongId === song.id
+                                    ? stopMusic(song.id)
+                                    : playMusic(song.id, song.frequencies, song.noteDelays)}
                                 className={`w-full flex items-center justify-center gap-2 px-6 py-3 rounded-full text-xs font-black tracking-widest transition-all active:scale-95 ${activeSongId === song.id
                                             ? "bg-[var(--color-danger)] text-white shadow-lg shadow-[var(--color-danger-glow)]"
                                             : "bg-[var(--color-accent)] text-black shadow-lg hover:scale-105"
