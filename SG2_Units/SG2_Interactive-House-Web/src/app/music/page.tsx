@@ -2,8 +2,9 @@
 import { useEffect, useState, useRef } from "react";
 import { PageShell } from "@/components/pageShell";
 import TopHeader from "@/components/TopHeader";
-import { db } from "@/utils/firebaseConfig";
-import { collection, getDocs } from "firebase/firestore";
+import { auth, db } from "@/utils/firebaseConfig";
+import { onAuthStateChanged } from "firebase/auth";
+import { collection, onSnapshot, setDoc, deleteDoc, doc, getDoc, type DocumentData } from "firebase/firestore";
 import Link from "next/link";
 import {
     MusicNotes,
@@ -56,11 +57,6 @@ const PIANO_NOTES = [
     { label: "D", freq: 1175 },
 ];
 
-const PIANO_RANGE = {
-    min: Math.min(...PIANO_NOTES.map((note) => note.freq)),
-    max: Math.max(...PIANO_NOTES.map((note) => note.freq)),
-};
-
 const toNumberArray = (value: unknown): number[] => {
     if (Array.isArray(value)) {
         return value.map((item) => Number(item)).filter((item) => Number.isFinite(item));
@@ -73,6 +69,64 @@ const toNumberArray = (value: unknown): number[] => {
     }
 
     return [];
+};
+
+const parseFrequencies = (value: string): number[] => {
+    const tokens = value
+        .split(/[,\s]+/)
+        .map((token) => token.trim())
+        .filter((token) => token.length > 0);
+
+    const sequence: number[] = [];
+
+    tokens.forEach((token) => {
+        const pauseMatch = token.match(/^(p|pause|rest)(\d+)?$/i);
+        if (pauseMatch) {
+            const count = pauseMatch[2] ? Number(pauseMatch[2]) : 1;
+            const pauseCount = Number.isFinite(count) && count > 0 ? count : 1;
+            for (let i = 0; i < pauseCount; i += 1) {
+                sequence.push(0);
+            }
+            return;
+        }
+
+        const valueNum = Number(token);
+        if (Number.isFinite(valueNum) && valueNum >= 0) {
+            sequence.push(valueNum);
+        }
+    });
+
+    return sequence;
+};
+
+const parseNoteDelays = (value: string): number[] =>
+    value
+        .split(/[\s,]+/)
+        .map((token) => Number(token.trim()))
+        .filter((delay) => Number.isFinite(delay) && delay >= 0);
+
+const formatAlignedFrequencyDelayStrings = (frequencies: number[], delays: number[]) => {
+    const length = Math.max(frequencies.length, delays.length);
+    const frequencyTokens: string[] = [];
+    const delayTokens: string[] = [];
+
+    for (let i = 0; i < length; i += 1) {
+        const frequencyToken = i < frequencies.length
+            ? frequencies[i] <= 0
+                ? "0"
+                : String(frequencies[i])
+            : "";
+        const delayToken = i < delays.length ? String(delays[i]) : "";
+        const tokenWidth = Math.max(frequencyToken.length, delayToken.length, 1);
+
+        frequencyTokens.push(frequencyToken.padStart(tokenWidth, " "));
+        delayTokens.push(delayToken.padStart(tokenWidth, " "));
+    }
+
+    return {
+        frequenciesText: frequencyTokens.join(", "),
+        delaysText: delayTokens.join(", "),
+    };
 };
 
 const frequencyToNoteName = (frequency: number | null): string | null => {
@@ -267,9 +321,25 @@ const playInstrumentNote = (params: {
 
 export default function MusicPage() {
     const [songs, setSongs] = useState<Song[]>([]);
+    const [selectedSong, setSelectedSong] = useState<Song | null>(null);
     const [activeSongId, setActiveSongId] = useState<string | null>(null);
     const [speedMultiplier, setSpeedMultiplier] = useState<number>(SPEED_MULTIPLIERS.NORMAL);
     const [instrument, setInstrument] = useState<InstrumentOption>("electric piano");
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    const [isAuthReady, setIsAuthReady] = useState(() => Boolean(auth.currentUser));
+    const [isAuthenticated, setIsAuthenticated] = useState(() => Boolean(auth.currentUser));
+    const [isAdmin, setIsAdmin] = useState(false);
+    const [newMelodyName, setNewMelodyName] = useState("");
+    const [newMelodyArtist, setNewMelodyArtist] = useState("");
+    const [newMelodyFrequencies, setNewMelodyFrequencies] = useState("");
+    const [newMelodyDelays, setNewMelodyDelays] = useState("");
+    const [editMelodyFrequencies, setEditMelodyFrequencies] = useState("");
+    const [editMelodyDelays, setEditMelodyDelays] = useState("");
+    const [isEditPanelOpen, setIsEditPanelOpen] = useState(false);
+    const [isSavingMelody, setIsSavingMelody] = useState(false);
+    const [isUpdatingMelody, setIsUpdatingMelody] = useState(false);
+    const [deletingMelodyId, setDeletingMelodyId] = useState<string | null>(null);
     const audioCtxRef = useRef<AudioContext | null>(null);
     const audioReverbRef = useRef<{ convolver: ConvolverNode; wetGain: GainNode; dryGain: GainNode } | null>(null);
     const speedMultiplierRef = useRef(SPEED_MULTIPLIERS.NORMAL);
@@ -344,30 +414,269 @@ export default function MusicPage() {
     };
 
     useEffect(() => {
-    const fetchMusic = async () => {
-        const querySnapshot = await getDocs(collection(db, "music"));
-        const musicData = querySnapshot.docs.map((doc) => {
-            const data = doc.data() as Record<string, unknown>;
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            setIsAuthenticated(Boolean(user));
+            setIsAuthReady(true);
 
-            return {
-                id: doc.id,
-                name: typeof data.name === "string" && data.name ? data.name : doc.id,
-                artist: typeof data.artist === "string" && data.artist ? data.artist : "Unknown",
-                frequencies: toNumberArray(data.frequencies),
-                noteDelays: toNumberArray(data.noteDelays),
-            } as Song;
+            if (!user) {
+                setIsAdmin(false);
+                return;
+            }
+
+            const userDocRefs = [
+                user.email ? doc(db, "users", user.email) : null,
+                doc(db, "users", user.uid),
+            ].filter(Boolean) as ReturnType<typeof doc>[];
+
+            (async () => {
+                try {
+                    for (const userDocRef of userDocRefs) {
+                        const snap = await getDoc(userDocRef);
+                        if (snap.exists()) {
+                            const role = String(snap.data()?.role || "").toLowerCase();
+                            setIsAdmin(role === "admin");
+                            return;
+                        }
+                    }
+                    setIsAdmin(false);
+                } catch (error) {
+                    console.error("Error resolving user role:", error);
+                    setIsAdmin(false);
+                }
+            })();
         });
-        setSongs(musicData);
-    };
 
-    fetchMusic();
+        return unsubscribe;
+    }, []);
 
-    return () => stopMusic();
+    useEffect(() => {
+        setIsLoading(true);
+        setLoadError(null);
+
+        const unsubscribe = onSnapshot(
+            collection(db, "music"),
+            (querySnapshot) => {
+                const musicData: Song[] = [];
+
+                querySnapshot.forEach((docSnap) => {
+                    const data = docSnap.data() as DocumentData;
+
+                    musicData.push({
+                        id: docSnap.id,
+                        name: typeof data.name === "string" && data.name ? data.name : docSnap.id,
+                        artist: typeof data.artist === "string" && data.artist ? data.artist : "Unknown",
+                        frequencies: toNumberArray(data.frequencies),
+                        noteDelays: toNumberArray(data.noteDelays),
+                    });
+                });
+
+                setSongs(musicData);
+                setIsLoading(false);
+            },
+            (error) => {
+                const errorCode = error?.code ? ` (${error.code})` : "";
+                if (error?.code === "permission-denied") {
+                    setLoadError(`Access denied to melodies${errorCode}. Please sign in with an authorized account.`);
+                } else {
+                    setLoadError(`Unable to load melodies right now${errorCode}. Please try again.`);
+                }
+                setIsLoading(false);
+                console.error("Error syncing melodies:", error);
+            }
+        );
+
+        return () => {
+            unsubscribe();
+            stopMusic();
+        };
     }, []);
 
     useEffect(() => {
         instrumentRef.current = instrument;
     }, [instrument]);
+
+    useEffect(() => {
+        setSelectedSong((prev) => {
+            if (songs.length === 0) {
+                return null;
+            }
+
+            if (!prev) {
+                return songs[0];
+            }
+
+            return songs.find((song) => song.id === prev.id) ?? songs[0];
+        });
+    }, [songs]);
+
+    useEffect(() => {
+        if (!selectedSong) {
+            setEditMelodyFrequencies("");
+            setEditMelodyDelays("");
+            setIsEditPanelOpen(false);
+            return;
+        }
+
+        const aligned = formatAlignedFrequencyDelayStrings(
+            selectedSong.frequencies,
+            selectedSong.noteDelays || []
+        );
+        setEditMelodyFrequencies(aligned.frequenciesText);
+        setEditMelodyDelays(aligned.delaysText);
+    }, [selectedSong]);
+
+    const handleAddMelody = async () => {
+        if (isSavingMelody) return;
+
+        if (!isAuthenticated) {
+            alert("Please sign in before adding a melody.");
+            return;
+        }
+
+        if (!isAdmin) {
+            alert("Only admin users can add melodies.");
+            return;
+        }
+
+        const melodyName = newMelodyName.trim();
+        const artistName = newMelodyArtist.trim() || "Unknown";
+        const frequencies = parseFrequencies(newMelodyFrequencies);
+        const noteDelays = parseNoteDelays(newMelodyDelays);
+
+        if (!melodyName) {
+            alert("Enter a melody name.");
+            return;
+        }
+
+        if (frequencies.length === 0 || frequencies.every((freq) => freq <= 0)) {
+            alert("Enter notes and optional pauses as 0, for example 262, 294, 0, 330.");
+            return;
+        }
+
+        if (noteDelays.length === 0) {
+            alert("Enter an Arduino delay value for each note, for example 500, 500, 250, 750.");
+            return;
+        }
+
+        if (noteDelays.length !== frequencies.length) {
+            alert("Delay count must match frequency count so each note has one Arduino delay value.");
+            return;
+        }
+
+        if (melodyName.includes("/")) {
+            alert("Melody name cannot include /.");
+            return;
+        }
+
+        try {
+            setIsSavingMelody(true);
+            const melodyDocRef = doc(collection(db, "music"), melodyName);
+            await setDoc(melodyDocRef, {
+                name: melodyName,
+                artist: artistName,
+                frequencies,
+                noteDelays,
+                updatedAt: new Date().toISOString(),
+            });
+
+            setNewMelodyName("");
+            setNewMelodyArtist("");
+            setNewMelodyFrequencies("");
+            setNewMelodyDelays("");
+            alert(`Melody "${melodyName}" was saved.`);
+        } catch (error: any) {
+            const message = error?.code ? `Unable to save melody (${error.code}).` : "Unable to save melody.";
+            console.error("Error adding melody:", error);
+            alert(message);
+        } finally {
+            setIsSavingMelody(false);
+        }
+    };
+
+    const handleUpdateMelody = async () => {
+        if (isUpdatingMelody || !selectedSong) return;
+
+        if (!isAuthenticated) {
+            alert("Please sign in before editing a melody.");
+            return;
+        }
+
+        if (!isAdmin) {
+            alert("Only admin users can edit melodies.");
+            return;
+        }
+
+        const frequencies = parseFrequencies(editMelodyFrequencies);
+        const noteDelays = parseNoteDelays(editMelodyDelays);
+
+        if (frequencies.length === 0 || frequencies.every((freq) => freq <= 0)) {
+            alert("Enter notes and optional pauses as 0, for example 262, 294, 0, 330.");
+            return;
+        }
+
+        if (noteDelays.length === 0) {
+            alert("Enter an Arduino delay value for each note, for example 500, 500, 250, 750.");
+            return;
+        }
+
+        if (noteDelays.length !== frequencies.length) {
+            alert("Delay count must match frequency count so each note has one Arduino delay value.");
+            return;
+        }
+
+        try {
+            setIsUpdatingMelody(true);
+            const melodyDocRef = doc(collection(db, "music"), selectedSong.id);
+            await setDoc(
+                melodyDocRef,
+                {
+                    frequencies,
+                    noteDelays,
+                    updatedAt: new Date().toISOString(),
+                },
+                { merge: true }
+            );
+
+            alert(`Melody "${selectedSong.name}" was updated.`);
+        } catch (error: any) {
+            const message = error?.code ? `Unable to update melody (${error.code}).` : "Unable to update melody.";
+            console.error("Error updating melody:", error);
+            alert(message);
+        } finally {
+            setIsUpdatingMelody(false);
+        }
+    };
+
+    const handleDeleteMelody = async () => {
+        if (!selectedSong || deletingMelodyId) return;
+
+        if (!isAuthenticated) {
+            alert("Please sign in before deleting a melody.");
+            return;
+        }
+
+        if (!isAdmin) {
+            alert("Only admin users can delete melodies.");
+            return;
+        }
+
+        const confirmed = window.confirm(
+            `Delete "${selectedSong.name}"? This will permanently remove it from cloud storage.`
+        );
+        if (!confirmed) return;
+
+        try {
+            setDeletingMelodyId(selectedSong.id);
+            await deleteDoc(doc(collection(db, "music"), selectedSong.id));
+            alert(`Melody "${selectedSong.name}" was deleted.`);
+        } catch (error: any) {
+            const message = error?.code ? `Unable to delete melody (${error.code}).` : "Unable to delete melody.";
+            console.error("Error deleting melody:", error);
+            alert(message);
+        } finally {
+            setDeletingMelodyId(null);
+        }
+    };
 
 const pianoSelection = getPianoSelection(activeFrequency);
 
@@ -470,7 +779,7 @@ const pianoSelection = getPianoSelection(activeFrequency);
                                         : "bg-black"
                                     }`}
                                     >
-                                        <span className="text-[8px] font-black text-white">
+                                        <span className={`text-[8px] font-black ${isBlackActive ? "text-black" : "text-white"}`}>
                                             {note.label}#
                                         </span>
                                     </div>
@@ -489,30 +798,44 @@ const pianoSelection = getPianoSelection(activeFrequency);
                     Available Tracks
                 </h2>
 
-                {/* TRACK LIST - MATCHING HUB TILES */}
-                <div className="grid grid-cols-1 gap-4">
+                {isLoading && (
+                    <div className="mb-4 rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-white/70 text-sm">
+                        Loading melodies...
+                    </div>
+                )}
+
+                {loadError && (
+                    <div className="mb-4 rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-[var(--color-danger)] text-sm">
+                        {loadError}
+                    </div>
+                )}
+
+                {/* TRACK GRID */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
                     {songs.map((song) => (
                         <div
                             key={song.id}
-                            className={`group rounded-3xl backdrop-blur-md border transition-all duration-500 p-5 flex items-center justify-between shadow-xl ${activeSongId === song.id
-                                    ? "bg-white/15 border-[var(--color-accent)] border-l-4 border-l-[var(--color-accent)]"
+                            className={`group rounded-3xl backdrop-blur-md border transition-all duration-500 p-5 flex flex-col gap-5 shadow-xl ${activeSongId === song.id
+                                    ? "bg-white/15 border-[var(--color-accent)]"
                                     : "bg-white/5 border-white/10 hover:bg-white/10"
                                 }`}
                         >
-                            <div className="flex items-center gap-5">
+                            <div className="flex items-center gap-4">
                                 {/* ICON CONTAINER */}
-                                <div className={`h-14 w-14 rounded-2xl flex items-center justify-center transition-all duration-500 ${activeSongId === song.id
+                                <div className={`h-14 w-14 shrink-0 rounded-2xl flex items-center justify-center transition-all duration-500 ${activeSongId === song.id
                                         ? "bg-[var(--color-accent-soft)] text-[var(--color-accent)] scale-110"
                                         : "bg-white/10 text-white/40 group-hover:text-white/70"
                                     }`}>
                                     <MusicNotes size={32} weight={activeSongId === song.id ? "fill" : "regular"} />
                                 </div>
 
-                                <div>
-                                    <p className="text-xl font-bold text-white tracking-tight leading-none mb-1">
-                                        {song.name}
-                                    </p>
-                                    <p className="text-white/40 text-[10px] tracking-[0.2em] uppercase font-black italic">
+                                <div className="min-w-0">
+                                    <div className="overflow-hidden">
+                                        <p className="song-marquee text-lg font-bold text-white tracking-tight leading-snug whitespace-nowrap">
+                                            {song.name}
+                                        </p>
+                                    </div>
+                                    <p className="text-white/60 text-[10px] tracking-[0.2em] uppercase font-black italic">
                                         {song.artist}
                                     </p>
                                 </div>
@@ -521,7 +844,7 @@ const pianoSelection = getPianoSelection(activeFrequency);
                             {/* ACTION BUTTON */}
                             <button
                                 onClick={() => activeSongId === song.id ? stopMusic() : playMusic(song.id, song.frequencies, song.noteDelays)}
-                                className={`flex items-center gap-2 px-8 py-3 rounded-full text-xs font-black tracking-widest transition-all active:scale-95 ${activeSongId === song.id
+                                className={`w-full flex items-center justify-center gap-2 px-6 py-3 rounded-full text-xs font-black tracking-widest transition-all active:scale-95 ${activeSongId === song.id
                                             ? "bg-[var(--color-danger)] text-white shadow-lg shadow-[var(--color-danger-glow)]"
                                             : "bg-[var(--color-accent)] text-black shadow-lg hover:scale-105"
                                     }`}
@@ -541,6 +864,155 @@ const pianoSelection = getPianoSelection(activeFrequency);
                         </div>
                     ))}
                 </div>
+
+                {songs.length === 0 && !isLoading && !loadError && (
+                    <div className="mt-4 rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-white/60 text-sm">
+                        No melodies available yet.
+                    </div>
+                )}
+
+                <h2 className="text-[10px] tracking-[0.4em] text-[var(--color-accent)] font-black mt-12 mb-6 uppercase opacity-80">
+                    Admin Dashboard
+                </h2>
+
+                {!isAuthReady && (
+                    <div className="rounded-3xl bg-white/5 border border-white/10 p-6 shadow-xl backdrop-blur-md text-white/70 text-sm">
+                        Checking your account...
+                    </div>
+                )}
+
+                {isAuthReady && !isAuthenticated && (
+                    <div className="rounded-3xl bg-white/5 border border-white/10 p-6 shadow-xl backdrop-blur-md text-white/70 text-sm">
+                        Sign in with an admin account to manage melodies.
+                    </div>
+                )}
+
+                {isAuthReady && isAuthenticated && !isAdmin && (
+                    <div className="rounded-3xl bg-white/5 border border-white/10 p-6 shadow-xl backdrop-blur-md text-white/70 text-sm">
+                        Admin access required to edit or delete melodies.
+                    </div>
+                )}
+
+                {isAuthReady && isAuthenticated && isAdmin && (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="rounded-3xl bg-white/5 border border-white/10 p-6 shadow-xl backdrop-blur-md">
+                            <h3 className="text-white font-black text-sm mb-4">Add Melody</h3>
+                            <div className="space-y-3">
+                                <input
+                                    value={newMelodyName}
+                                    onChange={(event) => setNewMelodyName(event.target.value)}
+                                    placeholder="Melody name"
+                                    className="w-full rounded-2xl bg-black/30 border border-white/10 px-4 py-3 text-white placeholder:text-white/40 outline-none focus:border-[var(--color-accent)]"
+                                />
+                                <input
+                                    value={newMelodyArtist}
+                                    onChange={(event) => setNewMelodyArtist(event.target.value)}
+                                    placeholder="Artist (optional)"
+                                    className="w-full rounded-2xl bg-black/30 border border-white/10 px-4 py-3 text-white placeholder:text-white/40 outline-none focus:border-[var(--color-accent)]"
+                                />
+                                <textarea
+                                    value={newMelodyFrequencies}
+                                    onChange={(event) => setNewMelodyFrequencies(event.target.value)}
+                                    placeholder="Frequencies (0 for rest), e.g. 262, 294, 0, 330"
+                                    rows={3}
+                                    className="w-full rounded-2xl bg-black/30 border border-white/10 px-4 py-3 text-white placeholder:text-white/40 outline-none focus:border-[var(--color-accent)]"
+                                />
+                                <textarea
+                                    value={newMelodyDelays}
+                                    onChange={(event) => setNewMelodyDelays(event.target.value)}
+                                    placeholder="Arduino delays (ms), e.g. 500, 500, 250, 750"
+                                    rows={3}
+                                    className="w-full rounded-2xl bg-black/30 border border-white/10 px-4 py-3 text-white placeholder:text-white/40 outline-none focus:border-[var(--color-accent)]"
+                                />
+                                <button
+                                    onClick={handleAddMelody}
+                                    disabled={isSavingMelody}
+                                    className={`w-full rounded-2xl px-4 py-3 text-xs font-black uppercase tracking-[0.2em] transition-all ${isSavingMelody
+                                            ? "bg-white/10 text-white/40"
+                                            : "bg-[var(--color-accent)] text-black shadow-lg"
+                                        }`}
+                                >
+                                    {isSavingMelody ? "Saving..." : "Save Melody"}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="rounded-3xl bg-white/5 border border-white/10 p-6 shadow-xl backdrop-blur-md">
+                            <h3 className="text-white font-black text-sm mb-4">Manage Melody</h3>
+                            {songs.length === 0 ? (
+                                <div className="text-white/60 text-sm">Add a melody to start editing.</div>
+                            ) : (
+                                <div className="space-y-4">
+                                    <select
+                                        value={selectedSong?.id ?? ""}
+                                        onChange={(event) => {
+                                            const next = songs.find((song) => song.id === event.target.value) || null;
+                                            setSelectedSong(next);
+                                        }}
+                                        className="w-full rounded-2xl bg-black/30 border border-white/10 px-4 py-3 text-white outline-none focus:border-[var(--color-accent)]"
+                                    >
+                                        {songs.map((song) => (
+                                            <option key={song.id} value={song.id} className="text-black">
+                                                {song.name}
+                                            </option>
+                                        ))}
+                                    </select>
+
+                                    <div className="rounded-2xl bg-black/20 border border-white/10 px-4 py-3 text-white/70 text-xs">
+                                        {selectedSong?.artist ?? "Unknown"}
+                                    </div>
+
+                                    <button
+                                        onClick={() => setIsEditPanelOpen((prev) => !prev)}
+                                        className="w-full rounded-2xl border border-white/10 px-4 py-3 text-xs font-black uppercase tracking-[0.2em] text-white/70 hover:text-white"
+                                    >
+                                        {isEditPanelOpen ? "Hide Editor" : "Edit Frequencies / Delays"}
+                                    </button>
+
+                                    {isEditPanelOpen && (
+                                        <div className="space-y-3">
+                                            <textarea
+                                                value={editMelodyFrequencies}
+                                                onChange={(event) => setEditMelodyFrequencies(event.target.value)}
+                                                placeholder="Frequencies (0 for rest)"
+                                                rows={3}
+                                                className="w-full rounded-2xl bg-black/30 border border-white/10 px-4 py-3 text-white placeholder:text-white/40 outline-none focus:border-[var(--color-accent)]"
+                                            />
+                                            <textarea
+                                                value={editMelodyDelays}
+                                                onChange={(event) => setEditMelodyDelays(event.target.value)}
+                                                placeholder="Arduino delays (ms)"
+                                                rows={3}
+                                                className="w-full rounded-2xl bg-black/30 border border-white/10 px-4 py-3 text-white placeholder:text-white/40 outline-none focus:border-[var(--color-accent)]"
+                                            />
+                                            <button
+                                                onClick={handleUpdateMelody}
+                                                disabled={isUpdatingMelody}
+                                                className={`w-full rounded-2xl px-4 py-3 text-xs font-black uppercase tracking-[0.2em] transition-all ${isUpdatingMelody
+                                                        ? "bg-white/10 text-white/40"
+                                                        : "bg-[var(--color-accent)] text-black shadow-lg"
+                                                    }`}
+                                            >
+                                                {isUpdatingMelody ? "Updating..." : "Update Melody"}
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    <button
+                                        onClick={handleDeleteMelody}
+                                        disabled={Boolean(deletingMelodyId)}
+                                        className={`w-full rounded-2xl px-4 py-3 text-xs font-black uppercase tracking-[0.2em] transition-all ${deletingMelodyId
+                                                ? "bg-white/10 text-white/40"
+                                                : "bg-[var(--color-danger)] text-white shadow-lg"
+                                            }`}
+                                    >
+                                        {deletingMelodyId ? "Deleting..." : "Delete Melody"}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
         </PageShell>
         </main>
