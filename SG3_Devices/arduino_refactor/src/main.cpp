@@ -31,7 +31,7 @@ WindowDevice windowDev;
 // SETUP
 void setup()
 {
-    Serial.begin(9600);
+    Serial.begin(115200);
 
     initDevices();
     lcd.init();
@@ -48,6 +48,10 @@ void setup()
 void loop()
 {
     music.update();
+
+    bool hasSerialData = Serial.available() > 0;
+    const unsigned long nowMs = millis();
+    static unsigned long lastTelemetryMs = 0;
 
     // SERIAL
     while (Serial.available())
@@ -75,55 +79,74 @@ void loop()
     // DEVICES
     updateDevices();
 
-    // SEND SENSOR DATA
-    Serial.print("S:");
-    Serial.print(s.gas);
-    Serial.print(",");
-    Serial.print(s.light);
-    Serial.print(",");
-    Serial.print(s.soil);
-    Serial.print(",");
-    Serial.print(s.steam);
-    Serial.print(",");
-    Serial.println(s.motion);
+    const unsigned long telemetryIntervalMs = music.isPlaying() ? 1000 : 200;
+    const bool shouldSendTelemetry = (nowMs - lastTelemetryMs) >= telemetryIntervalMs;
 
-    // SEND STATE
-    Serial.print("STATE:");
-    Serial.print("door="); Serial.print(doorOpen);
-    Serial.print(",window="); Serial.print(windowOpen);
-    Serial.print(",fanINA="); Serial.print(fanINA);
-    Serial.print(",fanINB="); Serial.print(fanINB);
-    Serial.print(",light="); Serial.print(whiteLightOn);
-    Serial.print(",buzzer="); Serial.print(buzzer);
-    Serial.print(",orange_light="); Serial.print(orangeLight);
-    Serial.println();
+    if (shouldSendTelemetry && !hasSerialData && buffer.length() == 0)
+    {
+        lastTelemetryMs = nowMs;
+
+        // SEND SENSOR DATA
+        Serial.print("S:");
+        Serial.print(s.gas);
+        Serial.print(",");
+        Serial.print(s.light);
+        Serial.print(",");
+        Serial.print(s.soil);
+        Serial.print(",");
+        Serial.print(s.steam);
+        Serial.print(",");
+        Serial.println(s.motion);
+
+        // SEND STATE
+        Serial.print("STATE:");
+        Serial.print("door="); Serial.print(doorOpen);
+        Serial.print(",window="); Serial.print(windowOpen);
+        Serial.print(",fanINA="); Serial.print(fanINA);
+        Serial.print(",fanINB="); Serial.print(fanINB);
+        Serial.print(",light="); Serial.print(whiteLightOn);
+        Serial.print(",buzzer="); Serial.print(buzzer);
+        Serial.print(",orange_light="); Serial.print(orangeLight);
+        Serial.println();
+    }
 
     // LCD
-String activeStates = "";
+    static String lastLine1 = "";
+    static String lastLine2 = "";
+    static unsigned long lastLcdMs = 0;
+    const unsigned long lcdIntervalMs = 200;
 
-// If s.gas is higher than your safety limit, add the alert
-if (s.gas > GAS_THRESHOLD) {
-    activeStates += "GAS ALERT! ";
-}
+    String activeStates = "";
 
+    // If s.gas is higher than your safety limit, add the alert
+    if (s.gas > GAS_THRESHOLD) {
+        activeStates += "GAS ALERT! ";
+    }
 
-if (doorOpen)           activeStates += "Door:Open ";
-if (windowOpen)         activeStates += "Win:Open ";
-if (fanINA || fanINB)   activeStates += "Fan:ON ";
-if (whiteLightOn)       activeStates += "W.Light:ON ";
-activeStates += "O.Light:" + String(orangeLight) + " ";
-if (buzzer)             activeStates += "BUZZER!! ";
+    if (doorOpen)           activeStates += "Door:Open ";
+    if (windowOpen)         activeStates += "Win:Open ";
+    if (fanINA || fanINB)   activeStates += "Fan:ON ";
+    if (whiteLightOn)       activeStates += "W.Light:ON ";
+    activeStates += "O.Light:" + String(orangeLight) + " ";
+    if (buzzer)             activeStates += "BUZZER!! ";
 
+    // If nothing is active, show a default message
+    if (activeStates == "") {
+        activeStates = "Software Eng. G4 HKR";
+    }
 
-// If nothing is active, show a default message
-if (activeStates == "") {
-    activeStates = "Software Eng. G4 HKR";
-}
+    String line1 = activeStates.substring(0, 16);
+    String line2 = activeStates.length() > 16 ? activeStates.substring(16, 32) : "";
 
-String line1 = activeStates.substring(0, 16);
-String line2 = activeStates.length() > 16 ? activeStates.substring(16, 32) : "";
+    if ((nowMs - lastLcdMs) >= lcdIntervalMs || line1 != lastLine1 || line2 != lastLine2) {
+        lcd.show(line1, line2);
+        lastLine1 = line1;
+        lastLine2 = line2;
+        lastLcdMs = nowMs;
+    }
 
-lcd.show(line1, line2);
-
-    delay(200);
+    const unsigned long loopDelayMs = (music.isPlaying() || hasSerialData || buffer.length() > 0)
+        ? 20
+        : 200;
+    delay(loopDelayMs);
 }

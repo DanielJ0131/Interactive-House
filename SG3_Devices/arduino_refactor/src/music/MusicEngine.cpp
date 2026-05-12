@@ -7,6 +7,9 @@ void MusicEngine::reset() {
     index = 0;
     playing = false;
     noteOn = false;
+    noteStartMs = 0;
+    noteEndMs = 0;
+    noteOffMs = 0;
     noTone(BUZZER_PIN);
 }
 
@@ -30,15 +33,7 @@ void MusicEngine::play() {
 
     playing = true;
     index = 0;
-    lastTime = millis();
-
-    if (melody[0] > 0) {
-        tone(BUZZER_PIN, melody[0]);
-        noteOn = true;
-    } else {
-        noTone(BUZZER_PIN);
-        noteOn = false;
-    }
+    startNote(millis());
 }
 
 void MusicEngine::stop() {
@@ -47,20 +42,33 @@ void MusicEngine::stop() {
     noTone(BUZZER_PIN);
 }
 
+void MusicEngine::startNote(unsigned long startMs) {
+    int note = melody[index];
+    unsigned long durMs = (unsigned long)duration[index];
+
+    if (durMs == 0) {
+        durMs = 1;
+    }
+
+    noteStartMs = startMs;
+    noteEndMs = startMs + durMs;
+    noteOffMs = startMs + (durMs * 9UL) / 10UL;
+
+    if (note > 0) {
+        tone(BUZZER_PIN, note);
+        noteOn = true;
+    } else {
+        noTone(BUZZER_PIN);
+        noteOn = false;
+    }
+}
+
 void MusicEngine::update() {
     if (!playing || length == 0) return;
 
     unsigned long now = millis();
-    unsigned long noteDuration = (unsigned long)duration[index];
 
-    // stop sound before note ends (gap)
-    if (noteOn && now - lastTime > (noteDuration * 0.9)) {
-        noTone(BUZZER_PIN);
-        noteOn = false;
-    }
-
-    // move to next note
-    if (now - lastTime >= noteDuration) {
+    while (playing && now >= noteEndMs) {
         index++;
 
         if (index >= length) {
@@ -68,14 +76,12 @@ void MusicEngine::update() {
             return;
         }
 
-        if (melody[index] > 0) {
-            tone(BUZZER_PIN, melody[index]);
-            noteOn = true;
-        } else {
-            noTone(BUZZER_PIN);
-            noteOn = false;
-        }
-        lastTime = now;
+        startNote(noteEndMs);
+    }
+
+    if (noteOn && now >= noteOffMs) {
+        noTone(BUZZER_PIN);
+        noteOn = false;
     }
 }
 

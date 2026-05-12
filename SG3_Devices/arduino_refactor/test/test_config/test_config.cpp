@@ -38,3 +38,12 @@ void setup() {
 }
 
 void loop() {}
+
+#ifndef ARDUINO
+int main() {
+	UNITY_BEGIN();
+	RUN_TEST(test_defaults);
+	RUN_TEST(test_modify_globals);
+	return UNITY_END();
+}
+#endif

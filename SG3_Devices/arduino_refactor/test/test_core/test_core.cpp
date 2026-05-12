@@ -198,6 +198,18 @@ void test_subject_notifies_attached_observers() {
 	TEST_ASSERT_EQUAL_INT(42, obs2.lastValue);
 }
 
+#ifndef ARDUINO
+int main() {
+	UNITY_BEGIN();
+	RUN_TEST(test_handle_door_window_and_io_commands);
+	RUN_TEST(test_handle_orange_light_is_constrained);
+	RUN_TEST(test_handle_music_commands);
+	RUN_TEST(test_unknown_command_does_not_change_state);
+	RUN_TEST(test_subject_notifies_attached_observers);
+	return UNITY_END();
+}
+#endif
+
 void test_subject_respects_max_observers() {
 	TestSubject subject;
 	MockObserver observers[6];

@@ -4,4 +4,5 @@
 class BuzzerDevice : public Observer {
 public:
     void update(int value) override;
+    bool isBuzzerActive() const;
 };

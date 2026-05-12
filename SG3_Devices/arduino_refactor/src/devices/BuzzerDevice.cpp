@@ -2,5 +2,9 @@
 #include "../config/Config.h"
 
 void BuzzerDevice::update(int value) {
-    buzzer = true;
+    buzzer = (value > 0);
+}
+
+bool BuzzerDevice::isBuzzerActive() const {
+    return buzzer;
 }

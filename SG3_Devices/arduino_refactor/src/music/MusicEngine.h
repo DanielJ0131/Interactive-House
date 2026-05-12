@@ -9,6 +9,7 @@ public:
     void play();
     void stop();
     void update();
+    bool isPlaying();
 
 public:
     static const int MAX = 100;
@@ -21,7 +22,11 @@ public:
 
     bool playing = false;
     bool noteOn = false;
-    bool isPlaying();
 
-    unsigned long lastTime = 0;
+private:
+    void startNote(unsigned long startMs);
+
+    unsigned long noteStartMs = 0;
+    unsigned long noteEndMs = 0;
+    unsigned long noteOffMs = 0;
 };

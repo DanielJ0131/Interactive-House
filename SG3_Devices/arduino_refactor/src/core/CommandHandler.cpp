@@ -50,30 +50,35 @@ void handleCommand(String c) {
     }
 
     else if (c == "C") {
-    music.reset();
-}
+        music.reset();
+    }
 
-else if (c.startsWith("A:")) {
-    int comma = c.indexOf(',');
+    else if (c.startsWith("A:")) {
+        int comma = c.indexOf(',');
+        if (comma <= 2) {
+            return;
+        }
 
-    int note = c.substring(2, comma).toInt();
-    int dur = c.substring(comma + 1).toInt();
+        int note = c.substring(2, comma).toInt();
+        int dur = c.substring(comma + 1).toInt();
+        if (dur <= 0) {
+            return;
+        }
 
-    music.addNote(note, dur);
-}
+        music.addNote(note, dur);
+    }
 
-else if (c == "E") {
-    music.finish();
-}
+    else if (c == "E") {
+        music.finish();
+    }
 
-else if (c == "P:1") {
-    music.play();
-}
+    else if (c == "P:1") {
+        music.play();
+    }
 
-else if (c == "P:0") {
-    music.stop();
-
-}
+    else if (c == "P:0") {
+        music.stop();
+    }
 
     // BUZZER
     else if (c == "B:1") {

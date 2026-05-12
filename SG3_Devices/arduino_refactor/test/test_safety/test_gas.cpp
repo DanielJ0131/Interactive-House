@@ -57,3 +57,12 @@ void setup() {
 }
 
 void loop() {}
+
+#ifndef ARDUINO
+int main() {
+	UNITY_BEGIN();
+	RUN_TEST(test_no_notify_below_threshold);
+	RUN_TEST(test_notify_above_threshold);
+	return UNITY_END();
+}
+#endif
