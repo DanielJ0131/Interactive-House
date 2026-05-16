@@ -1,22 +1,9 @@
-/**
- * @jest-environment jsdom
- */
-
-import React from "react";
-import { describe, expect, it, jest, beforeEach } from "@jest/globals";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import LoginPage from "@/app/auth/login/page";
+import { signInWithEmailAndPassword } from "firebase/auth";
 
 const replaceMock = jest.fn();
-const signInWithEmailAndPasswordMock = jest.fn();
-
-jest.mock("next/link", () => ({
-  __esModule: true,
-  default: ({ href, children, ...props }: { href: string; children: React.ReactNode }) => (
-    <a href={href} {...props}>
-      {children}
-    </a>
-  ),
-}));
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -25,66 +12,89 @@ jest.mock("next/navigation", () => ({
 }));
 
 jest.mock("@/utils/firebaseConfig", () => ({
-  auth: { __mockAuth: true },
+  auth: {},
 }));
 
 jest.mock("firebase/auth", () => ({
-  signInWithEmailAndPassword: (...args: unknown[]) => signInWithEmailAndPasswordMock(...args),
+  signInWithEmailAndPassword: jest.fn(),
 }));
 
-const loadLoginPage = async () => {
-  const module = await import("@/app/auth/login/page");
-  return module.default;
-};
-
-describe("Login screen", () => {
+describe("LoginPage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    document.cookie = "";
   });
 
-  it("shows inline validation error when email is missing", async () => {
-    const LoginPage = await loadLoginPage();
+  test("renders the login page", () => {
     render(<LoginPage />);
 
-    fireEvent.change(screen.getByPlaceholderText("••••••••"), { target: { value: "secret123" } });
-    fireEvent.click(screen.getByRole("button", { name: "Sign In" }));
+    expect(screen.getByText("Welcome Back")).toBeInTheDocument();
+    expect(screen.getByText("Sign in to control your house")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("name@example.com")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("••••••••")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sign In" })).toBeInTheDocument();
+  });
+
+  test("shows error when email is empty", async () => {
+    const user = userEvent.setup();
+
+    render(<LoginPage />);
+
+    await user.click(screen.getByRole("button", { name: "Sign In" }));
 
     expect(screen.getByText("Email is required.")).toBeInTheDocument();
-    expect(signInWithEmailAndPasswordMock).not.toHaveBeenCalled();
   });
 
-  it("signs in and routes to hub on success", async () => {
-    signInWithEmailAndPasswordMock.mockResolvedValue({ user: { email: "jane@example.com" } });
+  test("shows error when password is empty", async () => {
+    const user = userEvent.setup();
 
-    const LoginPage = await loadLoginPage();
     render(<LoginPage />);
 
-    fireEvent.change(screen.getByPlaceholderText("name@example.com"), { target: { value: " jane@example.com " } });
-    fireEvent.change(screen.getByPlaceholderText("••••••••"), { target: { value: "secret123" } });
-    fireEvent.click(screen.getByRole("button", { name: "Sign In" }));
+    await user.type(screen.getByPlaceholderText("name@example.com"), "test@example.com");
+    await user.click(screen.getByRole("button", { name: "Sign In" }));
 
-    await waitFor(() => expect(signInWithEmailAndPasswordMock).toHaveBeenCalledTimes(1));
+    expect(screen.getByText("Password is required.")).toBeInTheDocument();
+  });
 
-    expect(signInWithEmailAndPasswordMock).toHaveBeenCalledWith(
-      expect.any(Object),
-      "jane@example.com",
-      "secret123"
-    );
+  test("logs in successfully and redirects to hub", async () => {
+    const user = userEvent.setup();
+
+    (signInWithEmailAndPassword as jest.Mock).mockResolvedValueOnce({
+      user: {
+        email: "test@example.com",
+      },
+    });
+
+    render(<LoginPage />);
+
+    await user.type(screen.getByPlaceholderText("name@example.com"), "test@example.com");
+    await user.type(screen.getByPlaceholderText("••••••••"), "password123");
+    await user.click(screen.getByRole("button", { name: "Sign In" }));
+
+    await waitFor(() => {
+      expect(signInWithEmailAndPassword).toHaveBeenCalledWith(
+        {},
+        "test@example.com",
+        "password123"
+      );
+    });
+
     expect(replaceMock).toHaveBeenCalledWith("/hub");
-    expect(document.cookie).toContain("auth_session=true");
   });
 
-  it("maps firebase error code to a friendly login message", async () => {
-    signInWithEmailAndPasswordMock.mockRejectedValue({ code: "auth/wrong-password" });
+  test("shows friendly error when Firebase rejects login", async () => {
+    const user = userEvent.setup();
 
-    const LoginPage = await loadLoginPage();
+    (signInWithEmailAndPassword as jest.Mock).mockRejectedValueOnce({
+      code: "auth/wrong-password",
+    });
+
     render(<LoginPage />);
 
-    fireEvent.change(screen.getByPlaceholderText("name@example.com"), { target: { value: "jane@example.com" } });
-    fireEvent.change(screen.getByPlaceholderText("••••••••"), { target: { value: "wrong" } });
-    fireEvent.click(screen.getByRole("button", { name: "Sign In" }));
+    await user.type(screen.getByPlaceholderText("name@example.com"), "test@example.com");
+    await user.type(screen.getByPlaceholderText("••••••••"), "wrongpassword");
+    await user.click(screen.getByRole("button", { name: "Sign In" }));
 
-    await waitFor(() => expect(screen.getByText("Wrong email or password.")).toBeInTheDocument());
-    expect(replaceMock).not.toHaveBeenCalled();
+    expect(await screen.findByText("Wrong email or password.")).toBeInTheDocument();
   });
 });

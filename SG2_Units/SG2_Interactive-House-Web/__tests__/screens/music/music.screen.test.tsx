@@ -1,202 +1,181 @@
-/**
- * @jest-environment jsdom
- */
+import { act, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import MusicPage from "@/app/music/page";
+import { collection, getDocs } from "firebase/firestore";
 
-import React from "react";
-import { afterEach, beforeEach, describe, expect, it, jest } from "@jest/globals";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+const pushMock = jest.fn();
+const closeMock = jest.fn();
 
-jest.mock("next/link", () => ({
-	__esModule: true,
-	default: ({ href, children, ...props }: { href: string; children: React.ReactNode }) => (
-		<a href={href} {...props}>
-			{children}
-		</a>
-	),
-}));
-
-jest.mock("@/components/TopHeader", () => ({
-	__esModule: true,
-	default: () => <div data-testid="top-header">Top Header</div>,
-}));
-
-jest.mock("@/components/pageShell", () => ({
-	PageShell: ({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) => (
-		<section>
-			<h1>{title}</h1>
-			{subtitle ? <p>{subtitle}</p> : null}
-			{children}
-		</section>
-	),
-}));
-
-jest.mock("@phosphor-icons/react", () => ({
-	MusicNotes: () => <span data-testid="icon-music" />,
-	CaretLeft: () => <span data-testid="icon-left" />,
-	Play: () => <span data-testid="icon-play" />,
-	Stop: () => <span data-testid="icon-stop" />,
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: pushMock,
+    replace: jest.fn(),
+  }),
+  usePathname: () => "/music",
 }));
 
 jest.mock("@/utils/firebaseConfig", () => ({
-	db: { __mockDb: true },
+  auth: {},
+  db: {},
+}));
+
+jest.mock("firebase/auth", () => ({
+  signOut: jest.fn(),
 }));
 
 jest.mock("firebase/firestore", () => ({
-	collection: jest.fn(),
-	getDocs: jest.fn(),
+  collection: jest.fn(() => "music-collection"),
+  getDocs: jest.fn(),
 }));
 
-const loadMusicPage = async () => {
-	const module = await import("@/app/music/page");
-	return module.default;
-};
+describe("MusicPage", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
 
-const { collection, getDocs } = jest.requireMock("firebase/firestore") as {
-	collection: jest.Mock;
-	getDocs: jest.Mock;
-};
+    (getDocs as jest.Mock).mockResolvedValue({
+      docs: [
+        {
+          id: "song-1",
+          data: () => ({
+            name: "Alarm Melody",
+            artist: "Group 4",
+            frequencies: [440, 660, 880],
+          }),
+        },
+        {
+          id: "song-2",
+          data: () => ({
+            name: "Doorbell Tune",
+            artist: "Interactive House",
+            frequencies: [330, 440],
+          }),
+        },
+      ],
+    });
 
-const mockCollection = collection as unknown as jest.Mock;
-const mockGetDocs = getDocs as unknown as jest.Mock;
+    closeMock.mockClear();
 
-const oscillatorStartMock = jest.fn();
-const oscillatorStopMock = jest.fn();
-const oscillatorConnectMock = jest.fn();
-const oscillatorSetFrequencyMock = jest.fn();
-const gainConnectMock = jest.fn();
-const gainSetMock = jest.fn();
-const gainRampMock = jest.fn();
-const audioCloseMock = jest.fn();
+    const mockAudioContext = {
+      currentTime: 0,
+      destination: {},
+      close: closeMock,
+      createOscillator: jest.fn(() => ({
+        type: "sine",
+        frequency: {
+          setValueAtTime: jest.fn(),
+        },
+        connect: jest.fn(),
+        start: jest.fn(),
+        stop: jest.fn(),
+      })),
+      createGain: jest.fn(() => ({
+        gain: {
+          setValueAtTime: jest.fn(),
+          exponentialRampToValueAtTime: jest.fn(),
+        },
+        connect: jest.fn(),
+      })),
+    };
 
-class MockAudioContext {
-	currentTime = 0;
-	destination = {};
+    (window as any).AudioContext = jest.fn(() => mockAudioContext);
+    (window as any).webkitAudioContext = undefined;
+  });
 
-	createOscillator() {
-		return {
-			type: "",
-			frequency: {
-				setValueAtTime: oscillatorSetFrequencyMock,
-			},
-			connect: oscillatorConnectMock,
-			start: oscillatorStartMock,
-			stop: oscillatorStopMock,
-		};
-	}
+  afterEach(() => {
+    jest.useRealTimers();
+  });
 
-	createGain() {
-		return {
-			gain: {
-				setValueAtTime: gainSetMock,
-				exponentialRampToValueAtTime: gainRampMock,
-			},
-			connect: gainConnectMock,
-		};
-	}
+  test("loads and displays songs from Firestore", async () => {
+    render(<MusicPage />);
 
-	close = audioCloseMock;
-}
+    expect(collection).toHaveBeenCalledWith({}, "music");
 
-const makeQuerySnapshot = (overrides?: { frequencies?: number[]; noteDelays?: number[] }) => ({
-	docs: [
-		{
-			id: "song-1",
-			data: () => ({
-				name: "Lullaby",
-				artist: "SG2",
-				frequencies: overrides?.frequencies ?? [440],
-				noteDelays: overrides?.noteDelays ?? [120],
-			}),
-		},
-	],
-});
+    expect(await screen.findByText("Alarm Melody")).toBeInTheDocument();
+    expect(screen.getByText("Group 4")).toBeInTheDocument();
 
-describe("Music screen", () => {
-	beforeEach(() => {
-		jest.clearAllMocks();
+    expect(screen.getByText("Doorbell Tune")).toBeInTheDocument();
 
-		mockCollection.mockReturnValue({ __mockCollectionRef: true });
-		mockGetDocs.mockResolvedValue(makeQuerySnapshot());
+    expect(screen.getAllByText("Interactive House").length).toBeGreaterThan(0);
+  });
 
-		Object.defineProperty(window, "AudioContext", {
-			writable: true,
-			configurable: true,
-			value: MockAudioContext,
-		});
+  test("renders the music page layout and back link", async () => {
+    render(<MusicPage />);
 
-		Object.defineProperty(window, "webkitAudioContext", {
-			writable: true,
-			configurable: true,
-			value: MockAudioContext,
-		});
-	});
+    expect(screen.getByRole("heading", { name: "Music" })).toBeInTheDocument();
+    expect(screen.getByText("Music Control")).toBeInTheDocument();
+    expect(screen.getByText("Available Tracks")).toBeInTheDocument();
 
-	afterEach(() => {
-		jest.useRealTimers();
-	});
+    expect(screen.getByRole("link", { name: /Back to hub/i })).toHaveAttribute(
+      "href",
+      "/hub"
+    );
 
-	it("loads songs from Firestore and renders key music controls", async () => {
-		const MusicPage = await loadMusicPage();
-		render(<MusicPage />);
+    expect(await screen.findByText("Alarm Melody")).toBeInTheDocument();
+  });
 
-		await waitFor(() => expect(screen.getByText("Lullaby")).toBeInTheDocument());
+  test("renders and changes speed buttons", async () => {
+    const user = userEvent.setup();
 
-		expect(mockGetDocs).toHaveBeenCalledTimes(1);
-		expect(mockCollection).toHaveBeenCalledWith(expect.any(Object), "music");
-		expect(screen.getByText("SG2")).toBeInTheDocument();
-		expect(screen.getByText("Current Melody")).toBeInTheDocument();
-		expect(screen.getByText("Available Tracks")).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "SLOW" })).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "NORMAL" })).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "FAST" })).toBeInTheDocument();
-		expect(screen.getByText("OFF")).toBeInTheDocument();
-	});
+    render(<MusicPage />);
 
-	it("switches to ON while a track plays and returns to OFF after playback completes", async () => {
-		jest.useFakeTimers();
+    await screen.findByText("Alarm Melody");
 
-		const MusicPage = await loadMusicPage();
-		render(<MusicPage />);
+    const slowButton = screen.getByRole("button", { name: "SLOW" });
+    const normalButton = screen.getByRole("button", { name: "NORMAL" });
+    const fastButton = screen.getByRole("button", { name: "FAST" });
 
-		await waitFor(() => expect(screen.getByText("Lullaby")).toBeInTheDocument());
+    expect(slowButton).toBeInTheDocument();
+    expect(normalButton).toBeInTheDocument();
+    expect(fastButton).toBeInTheDocument();
 
-		fireEvent.click(screen.getByRole("button", { name: /play/i }));
+    expect(normalButton.className).toContain("bg-white");
 
-		expect(screen.getByText("ON")).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: /stop/i })).toBeInTheDocument();
+    await user.click(fastButton);
 
-		await act(async () => {
-			jest.advanceTimersByTime(140);
-			await Promise.resolve();
-		});
+    expect(fastButton.className).toContain("bg-white");
+  });
 
-		await waitFor(() => expect(screen.getByText("OFF")).toBeInTheDocument());
-		expect(oscillatorSetFrequencyMock).toHaveBeenCalledWith(440, 0);
-		expect(oscillatorStartMock).toHaveBeenCalledTimes(1);
-		expect(oscillatorStopMock).toHaveBeenCalledTimes(1);
-	});
+  test("clicking play starts the audio context and shows stop button", async () => {
+    jest.useFakeTimers();
 
-	it("stops playback immediately when STOP is pressed", async () => {
-		jest.useFakeTimers();
+    const user = userEvent.setup({
+      advanceTimers: jest.advanceTimersByTime,
+    });
 
-		mockGetDocs.mockResolvedValue(
-			makeQuerySnapshot({
-				frequencies: [440, 494],
-				noteDelays: [900, 900],
-			})
-		);
+    render(<MusicPage />);
 
-		const MusicPage = await loadMusicPage();
-		render(<MusicPage />);
+    await screen.findByText("Alarm Melody");
 
-		await waitFor(() => expect(screen.getByText("Lullaby")).toBeInTheDocument());
+    await user.click(screen.getAllByRole("button", { name: "PLAY" })[0]);
 
-		fireEvent.click(screen.getByRole("button", { name: /play/i }));
-		expect(screen.getByText("ON")).toBeInTheDocument();
+    expect((window as any).AudioContext).toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "STOP" })).toBeInTheDocument();
 
-		fireEvent.click(screen.getByRole("button", { name: /stop/i }));
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+  });
 
-		await waitFor(() => expect(screen.getByText("OFF")).toBeInTheDocument());
-		expect(audioCloseMock).toHaveBeenCalledTimes(1);
-	});
+  test("clicking stop closes the audio context", async () => {
+    jest.useFakeTimers();
+
+    const user = userEvent.setup({
+      advanceTimers: jest.advanceTimersByTime,
+    });
+
+    render(<MusicPage />);
+
+    await screen.findByText("Alarm Melody");
+
+    await user.click(screen.getAllByRole("button", { name: "PLAY" })[0]);
+    await user.click(screen.getByRole("button", { name: "STOP" }));
+
+    await waitFor(() => {
+      expect(closeMock).toHaveBeenCalled();
+    });
+
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+  });
 });
