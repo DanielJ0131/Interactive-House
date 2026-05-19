@@ -31,7 +31,19 @@ function DeviceCard({
 }) {
     const isActive = state === "ON" || state === "OPEN" || state === "FORWARD" || state === "REVERSE";
     return (
-        <div className="rounded-3xl bg-white/5 backdrop-blur-md border border-white/10 p-5 flex items-center justify-between transition-all">
+        <div
+            role={onToggle ? "button" : undefined}
+            tabIndex={onToggle ? 0 : undefined}
+            onClick={onToggle}
+            onKeyDown={(event) => {
+                if (!onToggle) return;
+                if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onToggle();
+                }
+            }}
+            className={`w-full rounded-3xl bg-white/5 backdrop-blur-md border border-white/10 p-5 flex items-center justify-between transition-all text-left ${onToggle ? "cursor-pointer hover:bg-white/10" : "cursor-default"} ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
+        >
             <div className="flex items-center gap-4">
                 <div className="h-12 w-12 rounded-2xl bg-white/10 flex items-center justify-center text-white">
                     <Icon path={icon} size={1.5} className={title.includes("Fan") && isActive ? "animate-spin" : ""} style={title.includes("Fan") && isActive ? {animationDuration: '0.5s'} : {}} />
@@ -313,20 +325,10 @@ if ((text.includes("close door")) && door){
         }
 
         setFanLoading(true);
-        let newState: 'off' | 'forward' | 'reverse';
-        if (fanState === 'off') newState = 'forward';
-        else if (fanState === 'forward') newState = 'reverse';
-        else newState = 'off';
+        const newState: 'off' | 'forward' | 'reverse' = fanState === 'off' ? 'forward' : 'off';
         setFanState(newState);
         if (newState === 'forward') {
             updateDoc(deviceRef, { "fan_INA.state": "on", "fan_INB.state": "off" }).then(() => setFanLoading(false));
-        } else if (newState === 'reverse') {
-            updateDoc(deviceRef, { "fan_INA.state": "off" }).then(() => {
-                setTimeout(async () => {
-                    await updateDoc(deviceRef, { "fan_INB.state": "on" });
-                    setFanLoading(false);
-                }, 2000);
-            });
         } else {
             updateDoc(deviceRef, { "fan_INA.state": "off", "fan_INB.state": "off" }).then(() => setFanLoading(false));
         }
@@ -398,17 +400,37 @@ if ((text.includes("close door")) && door){
 
                 <div className="grid grid-cols-1 gap-4">
                     <DeviceCard title="White Light" pin="13" icon={mdiLightbulb} state={whiteLight ? "ON" : "OFF"} onToggle={toggleLight} />
-                    <div className="rounded-3xl bg-white/5 backdrop-blur-md border border-white/10 p-5 flex items-center justify-between transition-all">
+                    <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={toggleFan}
+                        onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                toggleFan();
+                            }
+                        }}
+                        className={`rounded-3xl bg-white/5 backdrop-blur-md border border-white/10 p-5 flex items-center justify-between transition-all text-left ${fanLoading ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-white/10"}`}
+                    >
                         <div className="flex items-center gap-4">
                             <div className="h-12 w-12 rounded-2xl bg-white/10 flex items-center justify-center text-white">
-                                <Icon path={mdiFan} size={1.5} className={fanState !== 'off' ? "animate-spin" : ""} style={fanState !== 'off' ? {animationDuration: '0.5s'} : {}} />
+                                <Icon
+                                    path={mdiFan}
+                                    size={1.5}
+                                    className={fanState !== 'off' ? "animate-spin" : ""}
+                                    style={fanState === 'reverse'
+                                        ? { animationDuration: '0.5s', animationDirection: 'reverse' }
+                                        : fanState === 'forward'
+                                            ? { animationDuration: '0.5s' }
+                                            : {}}
+                                />
                             </div>
                             <div>
                                 <p className="text-lg font-semibold text-white">Fan</p>
                                 <p className="text-white/40 text-sm font-mono">PIN 7/6</p>
                             </div>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2" onClick={(event) => event.stopPropagation()}>
                             <button
                                 onClick={toggleFan}
                                 disabled={fanLoading}
@@ -417,14 +439,17 @@ if ((text.includes("close door")) && door){
                                         : "bg-white/10 text-white/40 hover:bg-white/20"
                                     } ${fanLoading ? "opacity-50 cursor-not-allowed" : ""}`}
                             >
-                                {fanLoading ? "..." : fanState.toUpperCase()}
+                                {fanLoading ? "..." : fanState === "off" ? "OFF" : "ON"}
                             </button>
                             <button
                                 onClick={toggleReverse}
                                 disabled={fanLoading}
-                                className={`px-4 py-2 rounded-full text-xs font-black tracking-widest transition-all bg-[var(--color-secondary-accent)] text-white hover:opacity-90 ${fanLoading ? "opacity-50 cursor-not-allowed" : ""}`}
+                                className={`px-4 py-2 rounded-full text-xs font-black tracking-widest transition-all ${fanState === "off"
+                                        ? "bg-white/10 text-white/40 hover:bg-white/20"
+                                        : "bg-[var(--color-secondary-accent)] text-white hover:opacity-90"
+                                    } ${fanLoading ? "opacity-50 cursor-not-allowed" : ""}`}
                             >
-                                {fanLoading ? "..." : "REVERSE"}
+                                {fanLoading ? "..." : fanState === "reverse" ? "FORWARD" : "REVERSE"}
                             </button>
                         </div>
                     </div>
