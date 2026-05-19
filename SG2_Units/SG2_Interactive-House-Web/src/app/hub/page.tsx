@@ -312,7 +312,16 @@ if ((text.includes("close door")) && door){
                     >
                         <div className="flex items-center gap-4">
                             <div className="h-12 w-12 rounded-2xl bg-white/10 flex items-center justify-center text-white">
-                                <Icon path={mdiFan} size={1.5} className={fanState !== 'off' ? "animate-spin" : ""} style={fanState !== 'off' ? {animationDuration: '0.5s'} : {}} />
+                                <Icon
+                                    path={mdiFan}
+                                    size={1.5}
+                                    className={fanState !== 'off' ? "animate-spin" : ""}
+                                    style={fanState === 'reverse'
+                                        ? { animationDuration: '0.5s', animationDirection: 'reverse' }
+                                        : fanState === 'forward'
+                                            ? { animationDuration: '0.5s' }
+                                            : {}}
+                                />
                             </div>
                             <div>
                                 <p className="text-lg font-semibold text-white">Fan</p>
