@@ -164,14 +164,14 @@ type PianoSelection = { type: "white" | "black"; index: number } | null;
 
 const SEMITONE_RATIO = Math.pow(2, 1 / 12);
 
-const getPianoSelection = (frequency: number | null): PianoSelection => {
+const getPianoSelection = (frequency: number | null, notes: typeof PIANO_NOTES = PIANO_NOTES): PianoSelection => {
     const activeNoteName = frequencyToNoteName(frequency);
     const activeNoteClass = frequencyToNoteClass(frequency);
 
     if (!activeNoteClass) return null;
 
-    for (let i = 0; i < PIANO_NOTES.length; i += 1) {
-        const note = PIANO_NOTES[i];
+    for (let i = 0; i < notes.length; i += 1) {
+        const note = notes[i];
         const whiteNoteName = frequencyToNoteName(note.freq);
         if (whiteNoteName && whiteNoteName === activeNoteName) {
             return { type: "white", index: i };
@@ -187,11 +187,11 @@ const getPianoSelection = (frequency: number | null): PianoSelection => {
 
     const isSharp = activeNoteClass.includes("#");
     const baseLabel = isSharp ? activeNoteClass.replace("#", "") : activeNoteClass;
-    const candidates = PIANO_NOTES.map((note, index) => ({ note, index }))
+    const candidates = notes.map((note, index) => ({ note, index }))
         .filter(({ note, index }) => {
             if (note.label !== baseLabel) return false;
             if (isSharp) {
-                return ["C", "D", "F", "G", "A"].includes(note.label) && index < PIANO_NOTES.length - 1;
+                return ["C", "D", "F", "G", "A"].includes(note.label) && index < notes.length - 1;
             }
             return true;
         });
@@ -340,6 +340,7 @@ export default function MusicPage() {
     const [isSavingMelody, setIsSavingMelody] = useState(false);
     const [isUpdatingMelody, setIsUpdatingMelody] = useState(false);
     const [deletingMelodyId, setDeletingMelodyId] = useState<string | null>(null);
+    const [isMobilePiano, setIsMobilePiano] = useState(false);
     const audioCtxRef = useRef<AudioContext | null>(null);
     const audioReverbRef = useRef<{ convolver: ConvolverNode; wetGain: GainNode; dryGain: GainNode } | null>(null);
     const speedMultiplierRef = useRef(SPEED_MULTIPLIERS.NORMAL);
@@ -520,6 +521,21 @@ export default function MusicPage() {
     useEffect(() => {
         instrumentRef.current = instrument;
     }, [instrument]);
+
+    useEffect(() => {
+        const mediaQuery = window.matchMedia("(max-width: 640px)");
+
+        const updateMobilePiano = () => {
+            setIsMobilePiano(mediaQuery.matches);
+        };
+
+        updateMobilePiano();
+        mediaQuery.addEventListener("change", updateMobilePiano);
+
+        return () => {
+            mediaQuery.removeEventListener("change", updateMobilePiano);
+        };
+    }, []);
 
     useEffect(() => {
         setSelectedSong((prev) => {
@@ -704,7 +720,8 @@ export default function MusicPage() {
         }
     };
 
-const pianoSelection = getPianoSelection(activeFrequency);
+    const displayedPianoNotes = isMobilePiano ? PIANO_NOTES.slice(0, 7) : PIANO_NOTES;
+    const pianoSelection = getPianoSelection(activeFrequency, displayedPianoNotes);
 
     return (
         <main className="min-h-screen bg-transparent">
@@ -783,22 +800,23 @@ const pianoSelection = getPianoSelection(activeFrequency);
 
                         <div
                             className="grid gap-1"
-                            style={{ gridTemplateColumns: "repeat(16, minmax(0, 1fr))" }}
+                            style={{ gridTemplateColumns: `repeat(${displayedPianoNotes.length}, minmax(0, 1fr))` }}
                         >
-                            {PIANO_NOTES.map((note, index) => {
+                            {displayedPianoNotes.map((note, index) => {
                                 const isWhiteActive = pianoSelection?.type === "white" && pianoSelection.index === index;
                                 const isBlackActive = pianoSelection?.type === "black" && pianoSelection.index === index;
+                                const isLastMobileWhiteKey = isMobilePiano && index === displayedPianoNotes.length - 1;
 
                                 return (
                                 <div
                                     key={`${note.label}-${index}`}
-                                    className={`relative h-28 rounded-b-lg border border-white/10 transition-all flex items-end justify-center pb-2 text-xs font-black ${
+                                    className={`relative h-24 sm:h-28 rounded-b-lg border border-white/10 transition-all flex items-end justify-center pb-2 text-xs font-black ${
                                         isWhiteActive
                                             ? "bg-[var(--color-accent)] text-black shadow-lg"
                                             : "bg-white text-black/60"
                                     }`}
                                  >
-                                {["C", "D", "F", "G", "A"].includes(note.label) && index !== PIANO_NOTES.length - 1 && (
+                                {["C", "D", "F", "G", "A"].includes(note.label) && !isLastMobileWhiteKey && (
                                     <div className={`absolute -top-1 right-[-12px] z-10 w-5 h-14 rounded-b-md shadow-lg transition-all flex items-center justify-center ${
                                         isBlackActive
                                         ? "bg-[var(--color-accent)] brightness-110"
