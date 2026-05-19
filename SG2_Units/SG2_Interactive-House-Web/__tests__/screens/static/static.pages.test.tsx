@@ -28,7 +28,9 @@ describe("Static pages", () => {
   test("Home page renders title and navigation links", () => {
     render(<Home />);
 
-    expect(screen.getByText("INTERACTIVE SMART HOUSE")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "INTERACTIVE HOUSE" })
+    ).toBeInTheDocument();
     expect(screen.getByText(/By Group 4 Software Engineering/i)).toBeInTheDocument();
 
     expect(screen.getByRole("link", { name: /Get Started/i })).toHaveAttribute(

@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "jest",
+    "jest": "jest --coverage --coverageReporters=text-summary",
     "test:coverage": "jest --coverage",
     "test:coverage:view": "jest --coverage && start coverage/lcov-report/index.html"
   },

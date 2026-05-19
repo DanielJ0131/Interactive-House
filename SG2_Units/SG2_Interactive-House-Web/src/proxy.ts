@@ -1,8 +1,8 @@
-// middleware.ts
+// src/proxy.ts
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
     // We check for a cookie named 'auth_session'
     const session = request.cookies.get('auth_session')?.value;
     const guestSession = request.cookies.get('guest_session')?.value;

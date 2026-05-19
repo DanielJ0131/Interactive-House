@@ -41,7 +41,7 @@ export default function Home() {
 
         {/* --- TEXT CONTENT --- */}
         <h1 className="mt-8 text-center text-4xl font-extrabold tracking-tight uppercase">
-          INTERACTIVE SMART HOUSE
+          INTERACTIVE HOUSE
         </h1>
 
         <p className="mt-3 text-center text-lg text-white/45">
