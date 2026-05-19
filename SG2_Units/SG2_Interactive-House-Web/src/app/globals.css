@@ -225,10 +225,29 @@ input[type="range"]::-webkit-slider-thumb {
   will-change: transform;
 }
 
+@keyframes sensor-float {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+
+  100% {
+    transform: translateY(-2px) scale(1.03);
+  }
+}
+
+.sensor-detected {
+  animation: sensor-float 0.8s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .group:hover .song-marquee,
   .group:active .song-marquee,
   .group:focus-within .song-marquee {
+    animation: none;
+  }
+
+  .sensor-detected {
     animation: none;
   }
 }

@@ -1,17 +1,17 @@
 "use client";
 
 import React from 'react';
-import { useEffect, useMemo, useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { db, auth } from "@/utils/firebaseConfig";
 import { useSpeechContext } from '../context/SpeechContext';    
-import { useGuestMode } from "@/app/hooks/useGuestMode";
 import TopHeader from "@/components/TopHeader";
 import { PageShell } from "@/components/pageShell";
 import Icon from '@mdi/react';
-import { mdiLightbulb, mdiDoor, mdiWeatherWindy, mdiFan, mdiRun, mdiCloud, mdiAlert, mdiRefresh, mdiMicrophone, mdiChevronRight } from '@mdi/js';
+import { mdiLightbulb, mdiDoor, mdiWeatherWindy, mdiFan, mdiRun, mdiCloud, mdiBellAlert, mdiAlert, mdiRefresh, mdiMicrophone, mdiChevronRight, mdiWeatherSunny, mdiFlower } from '@mdi/js';
 
 
 function DeviceCard({
@@ -108,32 +108,45 @@ function SliderCard({
     );
 }
 
-function SensorCard({ title, value, icon, unit = "" }: { title: string; value: number; icon: React.ReactNode; unit?: string }) {
+function SensorCard({
+    title,
+    value,
+    icon,
+    unit = "",
+    detected = false,
+}: {
+    title: string;
+    value: number;
+    icon: React.ReactNode;
+    unit?: string;
+    detected?: boolean;
+}) {
     return (
-        <div className="rounded-3xl bg-white/5 backdrop-blur-md border border-white/10 p-6">
+        <div className={`rounded-3xl backdrop-blur-md border p-6 transition-all ${detected ? "bg-red-500/10 border-red-500/40 shadow-lg shadow-red-500/10" : "bg-white/5 border-white/10"}`}>
             <div className="flex items-center gap-3 mb-4">
-                <div className="h-10 w-10 rounded-xl bg-white/5 flex items-center justify-center text-white/70">
+                <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${detected ? "bg-red-500/20 text-red-300 sensor-detected" : "bg-white/5 text-white/70"}`}>
                     {icon}
                 </div>
-                <p className="text-sm font-bold text-white/60 tracking-widest uppercase">{title}</p>
+                <p className={`text-sm font-bold tracking-widest uppercase ${detected ? "text-red-300" : "text-white/60"}`}>{title}</p>
             </div>
-            <p className="text-2xl font-mono text-white">{value}<span className="text-xs text-white/30 ml-1">{unit}</span></p>
+            <p className={`text-2xl font-mono ${detected ? "text-red-300" : "text-white"}`}>
+                {value}
+                <span className="text-xs text-white/30 ml-1">{unit}</span>
+            </p>
+            {detected && (
+                <p className={`text-sm font-bold tracking-widest mt-2 text-red-300`}>
+                    Detected
+                </p>
+            )}
         </div>
     );
 }
-
-const randomInt = (min: number, max: number) =>
-    Math.floor(Math.random() * (max - min + 1)) + min;
 
 /* --- MAIN PAGE --- */
 
 export default function HubPage() {
     const router = useRouter();
-    const isGuest = useGuestMode();
-    const deviceRef = useMemo(
-        () => (isGuest ? null : doc(db, "devices", "arduino")),
-        [isGuest]
-    );
+    const deviceRef = doc(db, "devices", "arduino");
 
     const [username, setUsername] = useState("Home");
 
@@ -154,6 +167,14 @@ export default function HubPage() {
 
     const [syncSource, setSyncSource] = useState("arduino");
     const [syncTime, setSyncTime] = useState("");
+
+    const sensorThresholds = {
+        Motion: 1,
+        Steam: 500,
+        Soil: 60,
+        Gas: 6,
+        Light: 100,
+    } as const;
     
     //for speech
     const {transcript} = useSpeechContext();
@@ -202,52 +223,28 @@ if ((text.includes("close door")) && door){
     
 }}, [transcript, whiteLight, door, windowState, buzzer, fanState, fanLoading]);
 
-    // Guest mock data
-    useEffect(() => {
-        if (!isGuest) return;
-
-        setUsername("Guest");
-        setWhiteLight(false);
-        setDoor(false);
-        setWindowState(false);
-        setFanState("off");
-        setFanLoading(false);
-        setOrangeLight(128);
-        setBuzzer(false);
-
-        const updateTelemetry = () => {
-            setMotion(randomInt(0, 1));
-            setSteam(randomInt(18, 32));
-            setGas(randomInt(2, 9));
-            setSoil(randomInt(35, 70));
-            setLight(randomInt(180, 820));
-            setSyncSource("guest");
-            setSyncTime(new Date().toLocaleString());
-        };
-
-        updateTelemetry();
-        const interval = setInterval(updateTelemetry, 4000);
-
-        return () => clearInterval(interval);
-    }, [isGuest]);
-
-    const updateGuestSync = () => {
-        setSyncSource("guest");
-        setSyncTime(new Date().toLocaleString());
-    };
-
     // Auth & Data Listeners
     useEffect(() => {
-        if (isGuest) return;
+        const formatName = (displayName?: string | null, email?: string | null) => {
+            if (displayName && displayName.trim()) return displayName;
+            if (!email) return "Home";
+            const local = email.split("@")[0];
+            const parts = local.split(/[._-]/).filter(Boolean);
+            const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+            if (parts.length === 0) return "Home";
+            const first = capitalize(parts[0]);
+            const last = parts.length > 1 ? capitalize(parts.slice(1).join(" ")) : "";
+            return last ? `${first} ${last}` : first;
+        };
+
         const unsub = onAuthStateChanged(auth, (user) => {
             if (!user) router.replace("/auth/login");
-            else setUsername(user.email?.split("@")[0] || "Home");
+            else setUsername(formatName(user.displayName, user.email));
         });
         return () => unsub();
-    }, [isGuest, router]);
+    }, [router]);
 
     useEffect(() => {
-        if (isGuest || !deviceRef) return;
         const unsub = onSnapshot(deviceRef, (snap) => {
             const data = snap.data();
             if (!data) return;
@@ -279,51 +276,14 @@ if ((text.includes("close door")) && door){
             }
         });
         return () => unsub();
-    }, [deviceRef, isGuest]);
+    }, []);
 
     // Handlers
-    const toggleLight = async () => {
-        if (isGuest || !deviceRef) {
-            setWhiteLight((prev) => !prev);
-            updateGuestSync();
-            return;
-        }
-
-        await updateDoc(deviceRef, { "white_light.state": whiteLight ? "off" : "on" });
-    };
-    const toggleDoor = async () => {
-        if (isGuest || !deviceRef) {
-            setDoor((prev) => !prev);
-            updateGuestSync();
-            return;
-        }
-
-        await updateDoc(deviceRef, { "door.state": door ? "closed" : "open" });
-    };
-    const toggleWindow = async () => {
-        if (isGuest || !deviceRef) {
-            setWindowState((prev) => !prev);
-            updateGuestSync();
-            return;
-        }
-
-        await updateDoc(deviceRef, { "window.state": windowState ? "closed" : "open" });
-    };
+    const toggleLight = async () => await updateDoc(deviceRef, { "white_light.state": whiteLight ? "off" : "on" });
+    const toggleDoor = async () => await updateDoc(deviceRef, { "door.state": door ? "closed" : "open" });
+    const toggleWindow = async () => await updateDoc(deviceRef, { "window.state": windowState ? "closed" : "open" });
     const toggleFan = () => {
         if (fanLoading) return;
-
-        if (isGuest || !deviceRef) {
-            setFanLoading(true);
-            let newState: 'off' | 'forward' | 'reverse';
-            if (fanState === 'off') newState = 'forward';
-            else if (fanState === 'forward') newState = 'reverse';
-            else newState = 'off';
-            setFanState(newState);
-            updateGuestSync();
-            setTimeout(() => setFanLoading(false), 250);
-            return;
-        }
-
         setFanLoading(true);
         const newState: 'off' | 'forward' | 'reverse' = fanState === 'off' ? 'forward' : 'off';
         setFanState(newState);
@@ -335,16 +295,6 @@ if ((text.includes("close door")) && door){
     };
     const toggleReverse = () => {
         if (fanLoading) return;
-
-        if (isGuest || !deviceRef) {
-            if (fanState === 'off') return;
-            setFanLoading(true);
-            const newState = fanState === 'forward' ? 'reverse' : 'forward';
-            setFanState(newState);
-            updateGuestSync();
-            setTimeout(() => setFanLoading(false), 250);
-            return;
-        }
         setFanLoading(true);
         
         if (fanState === 'forward') {
@@ -367,22 +317,10 @@ if ((text.includes("close door")) && door){
             });
         }
     };
-    const toggleBuzzer = async () => {
-        if (isGuest || !deviceRef) {
-            setBuzzer((prev) => !prev);
-            updateGuestSync();
-            return;
-        }
-
-        await updateDoc(deviceRef, { "buzzer.state": buzzer ? "off" : "on" });
-    };
+    const toggleBuzzer = async () => await updateDoc(deviceRef, { "buzzer.state": buzzer ? "off" : "on" });
 
     const handleOrangeLightChange = async (val: number) => {
         setOrangeLight(val);
-        if (isGuest || !deviceRef) {
-            updateGuestSync();
-            return;
-        }
         await updateDoc(deviceRef, { "orange_light.value": val });
     };
 
@@ -390,7 +328,7 @@ if ((text.includes("close door")) && door){
         <main className="min-h-screen bg-transparent">
 <TopHeader />
 
-<PageShell title={`${username}'s Hub`} subtitle="Control Center">
+<PageShell title={`${username}'s Home`} subtitle="Control Center">
 
                 {/* <VoiceTile /> */}
 
@@ -458,7 +396,7 @@ if ((text.includes("close door")) && door){
 
                     <SliderCard title="Orange Light" pin="5" icon={<Icon path={mdiLightbulb} size={1.5} />} value={orange_light} onChange={handleOrangeLightChange} />
 
-                    <DeviceCard title="Buzzer" pin="3" icon={mdiCloud} state={buzzer ? "ON" : "OFF"} onToggle={toggleBuzzer} />
+                    <DeviceCard title="Buzzer" pin="3" icon={mdiBellAlert} state={buzzer ? "ON" : "OFF"} onToggle={toggleBuzzer} />
                 </div>
 
                 <h2 className="text-[10px] tracking-[0.4em] text-[var(--color-secondary-accent)] font-black mt-12 mb-6 uppercase opacity-80">
@@ -466,11 +404,11 @@ if ((text.includes("close door")) && door){
                 </h2>
 
                 <div className="grid grid-cols-2 gap-4">
-                    <SensorCard title="Motion" value={motion} icon={<Icon path={mdiRun} size={1.375} />} />
-                    <SensorCard title="Steam" value={steam} icon={<Icon path={mdiCloud} size={1.375} />} />
-                    <SensorCard title="Gas" value={gas} icon={<Icon path={mdiAlert} size={1.375} />} />
-                    <SensorCard title="Soil" value={soil} icon={<Icon path={mdiCloud} size={1.375} />} unit="%" />
-                    <SensorCard title="Light" value={light} icon={<Icon path={mdiAlert} size={1.375} />} />
+                    <SensorCard title="Motion" value={motion} icon={<Icon path={mdiRun} size={1.375} />} detected={motion >= sensorThresholds.Motion} />
+                    <SensorCard title="Steam" value={steam} icon={<Icon path={mdiCloud} size={1.375} />} detected={steam >= sensorThresholds.Steam} />
+                    <SensorCard title="Gas" value={gas} icon={<Icon path={mdiAlert} size={1.375} />} detected={gas >= sensorThresholds.Gas} />
+                    <SensorCard title="Soil" value={soil} icon={<Icon path={mdiFlower} size={1.375} />} detected={soil >= sensorThresholds.Soil} />
+                    <SensorCard title="Light" value={light} icon={<Icon path={mdiWeatherSunny} size={1.375} />} detected={light >= sensorThresholds.Light} />
 
                 </div>
 
