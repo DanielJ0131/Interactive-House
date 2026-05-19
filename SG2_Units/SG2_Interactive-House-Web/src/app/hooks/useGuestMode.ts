@@ -3,16 +3,13 @@
 import { useEffect, useState } from "react";
 import { isGuestSession } from "@/utils/guestSession";
 
-const getGuestState = () => {
-  if (typeof document === "undefined") return false;
-  return isGuestSession();
-};
-
 export const useGuestMode = () => {
-  const [isGuest, setIsGuest] = useState(getGuestState);
+  // Start as null so the app knows we are still checking the browser cookies
+  const [isGuest, setIsGuest] = useState<boolean | null>(null);
 
   useEffect(() => {
-    setIsGuest(getGuestState());
+    // Once the client mounts, check the cookie and update to true or false
+    setIsGuest(isGuestSession());
   }, []);
 
   return isGuest;

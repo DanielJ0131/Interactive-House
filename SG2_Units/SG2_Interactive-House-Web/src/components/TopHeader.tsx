@@ -79,11 +79,10 @@ export default function TopHeader() {
                   <Link
                     key={item.name}
                     href={item.href}
-                    className={`flex items-center gap-2 text-sm transition ${
-                      active
-                        ? "text-[var(--color-accent)]"
-                        : "text-[var(--color-muted-text)] hover:text-[var(--color-accent)]"
-                    }`}
+                    className={`flex items-center gap-2 text-sm transition ${active
+                      ? "text-[var(--color-accent)]"
+                      : "text-[var(--color-muted-text)] hover:text-[var(--color-accent)]"
+                      }`}
                   >
                     <Icon size={20} />
                     {item.name}
@@ -92,24 +91,25 @@ export default function TopHeader() {
               })}
             </nav>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 md:gap-4">
               <button
                 onClick={() => setMobileMenuOpen((v) => !v)}
                 aria-label="Toggle menu"
-                className="md:hidden flex items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-[var(--text-primary)] hover:bg-[var(--color-surface-elevated)]"
+                className="md:hidden flex items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-2.5 text-[var(--text-primary)] hover:bg-[var(--color-surface-elevated)]"
               >
-                {mobileMenuOpen ? <X size={20} /> : <List size={20} />}
+                {mobileMenuOpen ? <X size={22} /> : <List size={22} />}
               </button>
 
               <button
                 onClick={handleEmergency}
                 aria-label="Emergency"
-                className="relative group flex items-center gap-2 rounded-full border border-red-400/50 bg-red-500/15 px-3 md:px-4 py-2 text-red-200 shadow-[0_0_18px_rgba(239,68,68,0.25)] transition-all duration-300 hover:scale-105 hover:bg-red-500/25 hover:text-red-100 hover:shadow-[0_0_28px_rgba(239,68,68,0.45)]"
+                className="relative group flex items-center gap-2 rounded-full border border-red-400/50 bg-red-500/15 p-2.5 md:px-4 md:py-2 text-red-200 shadow-[0_0_18px_rgba(239,68,68,0.25)] transition-all duration-300 hover:scale-105 hover:bg-red-500/25 hover:text-red-100 hover:shadow-[0_0_28px_rgba(239,68,68,0.45)]"
               >
                 <span className="absolute -inset-1 rounded-full bg-red-500/20 blur-md opacity-70 animate-pulse" />
 
                 <span className="relative flex items-center justify-center">
-                  <PhoneCall size={18} weight="fill" />
+                  {/* Made the icon slightly larger on mobile for better touch targeting */}
+                  <PhoneCall weight="fill" className="w-[22px] h-[22px] md:w-[18px] md:h-[18px]" />
                 </span>
 
                 <span className="relative text-xs font-black tracking-[0.16em] uppercase hidden md:inline">
@@ -117,35 +117,38 @@ export default function TopHeader() {
                 </span>
               </button>
 
-              {isGuest ? (
-                <div className="flex items-center gap-3">
-                  <Link
-                    href="/auth/login"
-                    className="text-sm text-[var(--color-accent)] transition hover:text-[var(--color-accent)]/90"
+              {/* Wrapped auth links in a hidden md:flex container so they only show in the dropdown on mobile */}
+              <div className="hidden md:flex items-center gap-3">
+                {isGuest ? (
+                  <>
+                    <Link
+                      href="/auth/login"
+                      className="text-sm text-[var(--color-accent)] transition hover:text-[var(--color-accent)]/90"
+                    >
+                      Sign In
+                    </Link>
+                    <Link
+                      href="/auth/signup"
+                      className="text-sm text-white/70 transition hover:text-white"
+                    >
+                      Sign Up
+                    </Link>
+                  </>
+                ) : (
+                  <button
+                    onClick={handleLogout}
+                    className="text-sm text-red-400 transition hover:text-red-300"
                   >
-                    Sign In
-                  </Link>
-                  <Link
-                    href="/auth/signup"
-                    className="text-sm text-white/70 transition hover:text-white"
-                  >
-                    Sign Up
-                  </Link>
-                </div>
-              ) : (
-                <button
-                  onClick={handleLogout}
-                  className="text-sm text-red-400 transition hover:text-red-300"
-                >
-                  Logout
-                </button>
-              )}
+                    Logout
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
         {mobileMenuOpen && (
-          <div className="md:hidden absolute left-0 right-0 top-full z-40 mt-2 w-full border-t border-[var(--color-border)] bg-[var(--color-surface-elevated)]">
+          <div className="md:hidden absolute left-0 right-0 top-full z-40 w-full border-t border-[var(--color-border)] bg-[var(--color-surface-elevated)] shadow-xl max-h-[calc(100vh-70px)] overflow-y-auto">
             <div className="mx-auto max-w-6xl px-6 py-4 flex flex-col gap-3">
               <button
                 onClick={() => {
@@ -154,7 +157,7 @@ export default function TopHeader() {
                 }}
                 className="flex items-center gap-2 rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-200"
               >
-                <PhoneCall size={16} weight="fill" />
+                <PhoneCall size={18} weight="fill" />
                 Emergency
               </button>
 
@@ -167,14 +170,14 @@ export default function TopHeader() {
                     onClick={() => setMobileMenuOpen(false)}
                     className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--color-accent-soft)]"
                   >
-                    <Icon size={18} />
+                    <Icon size={20} />
                     {item.name}
                   </Link>
                 );
               })}
 
-              <div className="flex flex-col gap-2 pt-2">
-                <div className="text-xs font-bold text-[var(--color-muted-text)]">Colorblind Mode</div>
+              <div className="flex flex-col gap-2 pt-2 border-t border-[var(--color-border)] mt-1">
+                <div className="text-xs font-bold text-[var(--color-muted-text)] px-1">Colorblind Mode</div>
                 <div className="flex flex-col gap-1">
                   {themes.map((theme) => (
                     <button
@@ -183,9 +186,8 @@ export default function TopHeader() {
                         setTheme(theme.value);
                         setMobileMenuOpen(false);
                       }}
-                      className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-sm transition hover:bg-[var(--color-accent-soft)] ${
-                        currentTheme === theme.value ? "text-[var(--color-accent)]" : "text-[var(--text-primary)]"
-                      }`}
+                      className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-sm transition hover:bg-[var(--color-accent-soft)] ${currentTheme === theme.value ? "text-[var(--color-accent)]" : "text-[var(--text-primary)]"
+                        }`}
                     >
                       <span>{theme.name}</span>
                       {currentTheme === theme.value && (
@@ -195,20 +197,20 @@ export default function TopHeader() {
                   ))}
                 </div>
 
-                <div className="flex items-center justify-between gap-3 pt-2">
+                <div className="flex items-center justify-between gap-3 pt-3 mt-1 border-t border-[var(--color-border)] px-1">
                   {isGuest ? (
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-4">
                       <Link
                         href="/auth/login"
                         onClick={() => setMobileMenuOpen(false)}
-                        className="text-sm text-[var(--color-accent)]"
+                        className="text-sm font-medium text-[var(--color-accent)]"
                       >
                         Sign In
                       </Link>
                       <Link
                         href="/auth/signup"
                         onClick={() => setMobileMenuOpen(false)}
-                        className="text-sm text-white/70"
+                        className="text-sm font-medium text-white/70"
                       >
                         Sign Up
                       </Link>
@@ -219,7 +221,7 @@ export default function TopHeader() {
                         handleLogout();
                         setMobileMenuOpen(false);
                       }}
-                      className="text-sm text-red-400 hover:text-red-300"
+                      className="text-sm font-medium text-red-400 hover:text-red-300"
                     >
                       Logout
                     </button>
