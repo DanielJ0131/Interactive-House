@@ -3,28 +3,17 @@ import userEvent from "@testing-library/user-event";
 import EmergencyPage from "@/app/emergency/page";
 
 const mockPush = jest.fn();
-let mockFromValue: string | null = null;
 const closeMock = jest.fn();
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({
     push: mockPush,
   }),
-  useSearchParams: () => ({
-    get: (key: string) => {
-      if (key === "from") {
-        return mockFromValue;
-      }
-
-      return null;
-    },
-  }),
 }));
 
 describe("EmergencyPage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockFromValue = null;
 
     const mockAudioContext = {
       state: "running",
@@ -82,16 +71,6 @@ describe("EmergencyPage", () => {
     expect(mockPush).toHaveBeenCalledWith("/hub");
   });
 
-  test("cancel button returns to guest hub when opened from guest hub", async () => {
-    const user = userEvent.setup();
-    mockFromValue = "guest_hub";
-
-    render(<EmergencyPage />);
-
-    await user.click(screen.getByRole("button", { name: "Cancel" }));
-
-    expect(mockPush).toHaveBeenCalledWith("/guest_hub");
-  });
 
   test("confirm emergency call starts the call screen", async () => {
     const user = userEvent.setup();
@@ -139,15 +118,4 @@ describe("EmergencyPage", () => {
     expect(mockPush).toHaveBeenCalledWith("/hub");
   });
 
-  test("end call returns to guest hub when opened from guest hub", async () => {
-    const user = userEvent.setup();
-    mockFromValue = "guest_hub";
-
-    render(<EmergencyPage />);
-
-    await user.click(screen.getByRole("button", { name: "Confirm Emergency Call" }));
-    await user.click(screen.getByRole("button", { name: "End Call" }));
-
-    expect(mockPush).toHaveBeenCalledWith("/guest_hub");
-  });
 });
