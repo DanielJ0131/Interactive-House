@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Brain, Microphone, House, PhoneCall, Palette } from "@phosphor-icons/react";
+import { Brain, Microphone, House, PhoneCall, List, X } from "@phosphor-icons/react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/utils/firebaseConfig";
 import { useEffect, useState } from "react";
@@ -18,7 +18,7 @@ export default function TopHeader() {
   const pathname = usePathname();
   const router = useRouter();
 
-  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [currentTheme, setCurrentTheme] = useState("");
 
   const nav = [
@@ -38,7 +38,6 @@ export default function TopHeader() {
     document.documentElement.className = theme;
     localStorage.setItem("theme", theme);
     setCurrentTheme(theme);
-    setThemeMenuOpen(false);
   };
 
   const handleLogout = async () => {
@@ -58,29 +57,15 @@ export default function TopHeader() {
     themes.find((theme) => theme.value === currentTheme)?.name ?? "Default";
 
   return (
-    <header className="w-full border-b border-[var(--color-border)] bg-black/50 backdrop-blur-sm relative z-50">
-      <div className="mx-auto max-w-6xl flex items-center justify-between px-6 py-4">
+    <>
+      <header className="w-full border-b border-[var(--color-border)] bg-black/50 backdrop-blur-sm fixed top-0 left-0 right-0 z-50">
+        <div className="mx-auto max-w-6xl flex items-center justify-between px-6 py-4">
         <div className="text-[var(--text-primary)] font-bold text-lg tracking-wide">
           Interactive House
         </div>
 
         <div className="flex items-center gap-8">
-          <nav className="flex items-center gap-6">
-            <button
-              onClick={handleEmergency}
-              className="relative group flex items-center gap-2 rounded-full border border-red-400/50 bg-red-500/15 px-4 py-2 text-red-200 shadow-[0_0_18px_rgba(239,68,68,0.25)] transition-all duration-300 hover:scale-105 hover:bg-red-500/25 hover:text-red-100 hover:shadow-[0_0_28px_rgba(239,68,68,0.45)]"
-            >
-              <span className="absolute -inset-1 rounded-full bg-red-500/20 blur-md opacity-70 animate-pulse" />
-
-              <span className="relative flex items-center justify-center">
-                <PhoneCall size={18} weight="fill" />
-              </span>
-
-              <span className="relative text-xs font-black tracking-[0.16em] uppercase">
-                Emergency
-              </span>
-            </button>
-
+          <nav className="hidden md:flex items-center gap-6">
             {nav.map((item) => {
               const Icon = item.icon;
               const active = pathname === item.href;
@@ -103,39 +88,29 @@ export default function TopHeader() {
           </nav>
 
           <div className="flex items-center gap-3">
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setThemeMenuOpen((open) => !open)}
-                className="flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 text-xs font-bold text-[var(--text-primary)] transition hover:bg-[var(--color-surface-elevated)]"
-              >
-                <Palette size={16} weight="fill" />
-                {currentThemeName}
-              </button>
+            {/* Mobile hamburger (visible on small screens) */}
+            <button
+              onClick={() => setMobileMenuOpen((v) => !v)}
+              aria-label="Toggle menu"
+              className="md:hidden flex items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-[var(--text-primary)] hover:bg-[var(--color-surface-elevated)]"
+            >
+              {mobileMenuOpen ? <X size={20} /> : <List size={20} />}
+            </button>
+            <button
+              onClick={handleEmergency}
+              aria-label="Emergency"
+              className="relative group flex items-center gap-2 rounded-full border border-red-400/50 bg-red-500/15 px-3 md:px-4 py-2 text-red-200 shadow-[0_0_18px_rgba(239,68,68,0.25)] transition-all duration-300 hover:scale-105 hover:bg-red-500/25 hover:text-red-100 hover:shadow-[0_0_28px_rgba(239,68,68,0.45)]"
+            >
+              <span className="absolute -inset-1 rounded-full bg-red-500/20 blur-md opacity-70 animate-pulse" />
 
-              {themeMenuOpen && (
-                <div className="absolute right-0 z-50 mt-3 w-48 overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-elevated)] shadow-2xl backdrop-blur-md">
-                  {themes.map((theme) => (
-                    <button
-                      key={theme.name}
-                      type="button"
-                      onClick={() => setTheme(theme.value)}
-                      className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm transition hover:bg-[var(--color-accent-soft)] ${
-                        currentTheme === theme.value
-                          ? "text-[var(--color-accent)]"
-                          : "text-[var(--text-primary)]"
-                      }`}
-                    >
-                      <span>{theme.name}</span>
+              <span className="relative flex items-center justify-center">
+                <PhoneCall size={18} weight="fill" />
+              </span>
 
-                      {currentTheme === theme.value && (
-                        <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-accent)]" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+              <span className="relative text-xs font-black tracking-[0.16em] uppercase hidden md:inline">
+                Emergency
+              </span>
+            </button>
 
             <button
               onClick={handleLogout}
@@ -146,6 +121,74 @@ export default function TopHeader() {
           </div>
         </div>
       </div>
-    </header>
+
+      {/* Mobile dropdown menu */}
+      {mobileMenuOpen && (
+        <div className="md:hidden absolute left-0 right-0 top-full z-40 mt-2 w-full border-t border-[var(--color-border)] bg-[var(--color-surface-elevated)]">
+          <div className="mx-auto max-w-6xl px-6 py-4 flex flex-col gap-3">
+            <button
+              onClick={() => {
+                handleEmergency();
+                setMobileMenuOpen(false);
+              }}
+              className="flex items-center gap-2 rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-200"
+            >
+              <PhoneCall size={16} weight="fill" />
+              Emergency
+            </button>
+
+            {nav.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--color-accent-soft)]"
+                >
+                  <Icon size={18} />
+                  {item.name}
+                </Link>
+              );
+            })}
+            <div className="flex flex-col gap-2 pt-2">
+              <div className="text-xs font-bold text-[var(--color-muted-text)]">Colorblind Mode</div>
+              <div className="flex flex-col gap-1">
+                {themes.map((theme) => (
+                  <button
+                    key={theme.name}
+                    onClick={() => {
+                      setTheme(theme.value);
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-sm transition hover:bg-[var(--color-accent-soft)] ${
+                      currentTheme === theme.value ? "text-[var(--color-accent)]" : "text-[var(--text-primary)]"
+                    }`}
+                  >
+                    <span>{theme.name}</span>
+                    {currentTheme === theme.value && <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-accent)]" />}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center justify-between gap-3 pt-2">
+                <button
+                  onClick={() => {
+                    handleLogout();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="text-sm text-red-400 hover:text-red-300"
+                >
+                  Logout
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      </header>
+
+      <div className="h-16 md:h-16" />
+    </>
   );
 }
