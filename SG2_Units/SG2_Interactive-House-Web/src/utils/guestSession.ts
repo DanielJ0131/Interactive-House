@@ -21,6 +21,17 @@ export const setGuestSessionCookie = () => {
   document.cookie = `${GUEST_SESSION_COOKIE}=true; path=/; max-age=86400; SameSite=Lax`;
 };
 
+export const clearAuthSessionCookie = () => {
+  if (!isBrowser()) return;
+
+  document.cookie = `${AUTH_SESSION_COOKIE}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+};
+
+export const startGuestSession = () => {
+  clearAuthSessionCookie();
+  setGuestSessionCookie();
+};
+
 export const clearGuestSessionCookie = () => {
   if (!isBrowser()) return;
 

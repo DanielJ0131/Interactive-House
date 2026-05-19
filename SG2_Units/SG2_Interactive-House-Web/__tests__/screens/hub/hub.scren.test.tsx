@@ -106,7 +106,7 @@ describe("HubPage", () => {
 
     expect(doc).toHaveBeenCalledWith({}, "devices", "arduino");
 
-    expect(await screen.findByRole("heading", { name: "daniel's Hub" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /daniel's home/i })).toBeInTheDocument();
     expect(screen.getByText("Control Center")).toBeInTheDocument();
 
     expect(screen.getByText("White Light")).toBeInTheDocument();

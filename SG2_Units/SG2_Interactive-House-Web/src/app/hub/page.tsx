@@ -10,6 +10,7 @@ import { db, auth } from "@/utils/firebaseConfig";
 import { useSpeechContext } from '../context/SpeechContext';    
 import TopHeader from "@/components/TopHeader";
 import { PageShell } from "@/components/pageShell";
+import { useGuestMode } from "@/app/hooks/useGuestMode";
 import Icon from '@mdi/react';
 import { mdiLightbulb, mdiDoor, mdiWeatherWindy, mdiFan, mdiRun, mdiCloud, mdiBellAlert, mdiAlert, mdiRefresh, mdiMicrophone, mdiChevronRight, mdiWeatherSunny, mdiFlower } from '@mdi/js';
 
@@ -147,6 +148,7 @@ function SensorCard({
 export default function HubPage() {
     const router = useRouter();
     const deviceRef = doc(db, "devices", "arduino");
+    const isGuest = useGuestMode();
 
     const [username, setUsername] = useState("Home");
 
@@ -237,12 +239,17 @@ if ((text.includes("close door")) && door){
             return last ? `${first} ${last}` : first;
         };
 
+        if (isGuest) {
+            setUsername("Guest");
+            return;
+        }
+
         const unsub = onAuthStateChanged(auth, (user) => {
             if (!user) router.replace("/auth/login");
             else setUsername(formatName(user.displayName, user.email));
         });
         return () => unsub();
-    }, [router]);
+    }, [router, isGuest]);
 
     useEffect(() => {
         const unsub = onSnapshot(deviceRef, (snap) => {

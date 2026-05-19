@@ -5,14 +5,21 @@ import { useRouter } from "next/navigation";
 
 import Icon from '@mdi/react';
 import { mdiHomeOutline } from '@mdi/js';
-import { setGuestSessionCookie } from "@/utils/guestSession";
+import { signOut } from "firebase/auth";
+import { auth } from "@/utils/firebaseConfig";
+import { startGuestSession } from "@/utils/guestSession";
 
 
 export default function Home() {
   const router = useRouter();
 
-  const handleGuestExplore = () => {
-    setGuestSessionCookie();
+  const handleGuestExplore = async () => {
+    try {
+      await signOut(auth);
+    } catch {
+      // Ignore sign-out errors when no active session exists.
+    }
+    startGuestSession();
     router.push("/hub");
   };
 
