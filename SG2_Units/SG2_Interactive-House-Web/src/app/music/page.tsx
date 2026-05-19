@@ -2,10 +2,12 @@
 import { useEffect, useState, useRef } from "react";
 import { PageShell } from "@/components/pageShell";
 import TopHeader from "@/components/TopHeader";
+import GuestGate from "@/components/GuestGate";
 import { auth, db } from "@/utils/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import { collection, onSnapshot, setDoc, deleteDoc, doc, getDoc, type DocumentData } from "firebase/firestore";
 import Link from "next/link";
+import { useGuestMode } from "@/app/hooks/useGuestMode";
 import {
     MusicNotes,
     CaretLeft,
@@ -320,6 +322,7 @@ const playInstrumentNote = (params: {
 };
 
 export default function MusicPage() {
+    const isGuest = useGuestMode();
     const [songs, setSongs] = useState<Song[]>([]);
     const [selectedSong, setSelectedSong] = useState<Song | null>(null);
     const [activeSongId, setActiveSongId] = useState<string | null>(null);
@@ -347,6 +350,10 @@ export default function MusicPage() {
     const [activeFrequency, setActiveFrequency] = useState<number | null>(null);
 
     const updatePlaybackState = async (songId: string, isPlaying: boolean) => {
+        if (isGuest) {
+            return;
+        }
+
         if (!songId || !isAuthenticated || !isAdmin) {
             return;
         }
@@ -440,6 +447,13 @@ export default function MusicPage() {
     };
 
     useEffect(() => {
+        if (isGuest) {
+            setIsAuthReady(true);
+            setIsAuthenticated(false);
+            setIsAdmin(false);
+            return;
+        }
+
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             setIsAuthenticated(Boolean(user));
             setIsAuthReady(true);
@@ -473,9 +487,16 @@ export default function MusicPage() {
         });
 
         return unsubscribe;
-    }, []);
+    }, [isGuest]);
 
     useEffect(() => {
+        if (isGuest) {
+            setIsLoading(false);
+            setLoadError(null);
+            setSongs([]);
+            return;
+        }
+
         setIsLoading(true);
         setLoadError(null);
 
@@ -515,7 +536,7 @@ export default function MusicPage() {
             unsubscribe();
             stopMusic();
         };
-    }, []);
+    }, [isGuest]);
 
     useEffect(() => {
         instrumentRef.current = instrument;
@@ -711,6 +732,13 @@ const pianoSelection = getPianoSelection(activeFrequency);
         <TopHeader />
         <PageShell title="Music" subtitle="Music Control ">
             <div className="max-w-5xl mx-auto p-4 md:p-6">
+                {isGuest ? (
+                    <GuestGate
+                        title="Sign in required"
+                        message="You need to sign up or log in to use music controls in guest mode."
+                    />
+                ) : (
+                    <>
 
                 {/* TOP NAVIGATION & CONTROLS */}
                 <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-12">
@@ -1040,6 +1068,8 @@ const pianoSelection = getPianoSelection(activeFrequency);
                             )}
                         </div>
                     </div>
+                )}
+                    </>
                 )}
             </div>
         </PageShell>

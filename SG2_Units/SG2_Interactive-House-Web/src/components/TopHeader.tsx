@@ -6,6 +6,7 @@ import { Brain, Microphone, House, PhoneCall, Palette } from "@phosphor-icons/re
 import { signOut } from "firebase/auth";
 import { auth } from "@/utils/firebaseConfig";
 import { useEffect, useState } from "react";
+import { useGuestMode } from "@/app/hooks/useGuestMode";
 
 const themes = [
   { name: "Default", value: "" },
@@ -17,6 +18,7 @@ const themes = [
 export default function TopHeader() {
   const pathname = usePathname();
   const router = useRouter();
+  const isGuest = useGuestMode();
 
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [currentTheme, setCurrentTheme] = useState("");
@@ -42,6 +44,7 @@ export default function TopHeader() {
   };
 
   const handleLogout = async () => {
+    if (isGuest) return;
     await signOut(auth);
 
     document.cookie =
@@ -60,8 +63,13 @@ export default function TopHeader() {
   return (
     <header className="w-full border-b border-[var(--color-border)] bg-black/50 backdrop-blur-sm relative z-50">
       <div className="mx-auto max-w-6xl flex items-center justify-between px-6 py-4">
-        <div className="text-[var(--text-primary)] font-bold text-lg tracking-wide">
+        <div className="text-[var(--text-primary)] font-bold text-lg tracking-wide flex items-center gap-2">
           Interactive House
+          {isGuest && (
+            <span className="rounded-full border border-white/15 bg-white/5 px-2 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-white/70">
+              Guest
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-8">
@@ -137,12 +145,29 @@ export default function TopHeader() {
               )}
             </div>
 
-            <button
-              onClick={handleLogout}
-              className="text-sm text-red-400 transition hover:text-red-300"
-            >
-              Logout
-            </button>
+            {isGuest ? (
+              <div className="flex items-center gap-3">
+                <Link
+                  href="/auth/login"
+                  className="text-sm text-[var(--color-accent)] transition hover:text-[var(--color-accent)]/90"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  href="/auth/signup"
+                  className="text-sm text-white/70 transition hover:text-white"
+                >
+                  Sign Up
+                </Link>
+              </div>
+            ) : (
+              <button
+                onClick={handleLogout}
+                className="text-sm text-red-400 transition hover:text-red-300"
+              >
+                Logout
+              </button>
+            )}
           </div>
         </div>
       </div>

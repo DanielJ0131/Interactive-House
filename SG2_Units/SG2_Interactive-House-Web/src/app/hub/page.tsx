@@ -1,13 +1,13 @@
 "use client";
 
 import React from 'react';
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { db, auth } from "@/utils/firebaseConfig";
 import { useSpeechContext } from '../context/SpeechContext';    
+import { useGuestMode } from "@/app/hooks/useGuestMode";
 import TopHeader from "@/components/TopHeader";
 import { PageShell } from "@/components/pageShell";
 import Icon from '@mdi/react';
@@ -110,11 +110,18 @@ function SensorCard({ title, value, icon, unit = "" }: { title: string; value: n
     );
 }
 
+const randomInt = (min: number, max: number) =>
+    Math.floor(Math.random() * (max - min + 1)) + min;
+
 /* --- MAIN PAGE --- */
 
 export default function HubPage() {
     const router = useRouter();
-    const deviceRef = doc(db, "devices", "arduino");
+    const isGuest = useGuestMode();
+    const deviceRef = useMemo(
+        () => (isGuest ? null : doc(db, "devices", "arduino")),
+        [isGuest]
+    );
 
     const [username, setUsername] = useState("Home");
 
@@ -183,16 +190,52 @@ if ((text.includes("close door")) && door){
     
 }}, [transcript, whiteLight, door, windowState, buzzer, fanState, fanLoading]);
 
+    // Guest mock data
+    useEffect(() => {
+        if (!isGuest) return;
+
+        setUsername("Guest");
+        setWhiteLight(false);
+        setDoor(false);
+        setWindowState(false);
+        setFanState("off");
+        setFanLoading(false);
+        setOrangeLight(128);
+        setBuzzer(false);
+
+        const updateTelemetry = () => {
+            setMotion(randomInt(0, 1));
+            setSteam(randomInt(18, 32));
+            setGas(randomInt(2, 9));
+            setSoil(randomInt(35, 70));
+            setLight(randomInt(180, 820));
+            setSyncSource("guest");
+            setSyncTime(new Date().toLocaleString());
+        };
+
+        updateTelemetry();
+        const interval = setInterval(updateTelemetry, 4000);
+
+        return () => clearInterval(interval);
+    }, [isGuest]);
+
+    const updateGuestSync = () => {
+        setSyncSource("guest");
+        setSyncTime(new Date().toLocaleString());
+    };
+
     // Auth & Data Listeners
     useEffect(() => {
+        if (isGuest) return;
         const unsub = onAuthStateChanged(auth, (user) => {
             if (!user) router.replace("/auth/login");
             else setUsername(user.email?.split("@")[0] || "Home");
         });
         return () => unsub();
-    }, [router]);
+    }, [isGuest, router]);
 
     useEffect(() => {
+        if (isGuest || !deviceRef) return;
         const unsub = onSnapshot(deviceRef, (snap) => {
             const data = snap.data();
             if (!data) return;
@@ -224,14 +267,51 @@ if ((text.includes("close door")) && door){
             }
         });
         return () => unsub();
-    }, []);
+    }, [deviceRef, isGuest]);
 
     // Handlers
-    const toggleLight = async () => await updateDoc(deviceRef, { "white_light.state": whiteLight ? "off" : "on" });
-    const toggleDoor = async () => await updateDoc(deviceRef, { "door.state": door ? "closed" : "open" });
-    const toggleWindow = async () => await updateDoc(deviceRef, { "window.state": windowState ? "closed" : "open" });
+    const toggleLight = async () => {
+        if (isGuest || !deviceRef) {
+            setWhiteLight((prev) => !prev);
+            updateGuestSync();
+            return;
+        }
+
+        await updateDoc(deviceRef, { "white_light.state": whiteLight ? "off" : "on" });
+    };
+    const toggleDoor = async () => {
+        if (isGuest || !deviceRef) {
+            setDoor((prev) => !prev);
+            updateGuestSync();
+            return;
+        }
+
+        await updateDoc(deviceRef, { "door.state": door ? "closed" : "open" });
+    };
+    const toggleWindow = async () => {
+        if (isGuest || !deviceRef) {
+            setWindowState((prev) => !prev);
+            updateGuestSync();
+            return;
+        }
+
+        await updateDoc(deviceRef, { "window.state": windowState ? "closed" : "open" });
+    };
     const toggleFan = () => {
         if (fanLoading) return;
+
+        if (isGuest || !deviceRef) {
+            setFanLoading(true);
+            let newState: 'off' | 'forward' | 'reverse';
+            if (fanState === 'off') newState = 'forward';
+            else if (fanState === 'forward') newState = 'reverse';
+            else newState = 'off';
+            setFanState(newState);
+            updateGuestSync();
+            setTimeout(() => setFanLoading(false), 250);
+            return;
+        }
+
         setFanLoading(true);
         let newState: 'off' | 'forward' | 'reverse';
         if (fanState === 'off') newState = 'forward';
@@ -253,6 +333,16 @@ if ((text.includes("close door")) && door){
     };
     const toggleReverse = () => {
         if (fanLoading) return;
+
+        if (isGuest || !deviceRef) {
+            if (fanState === 'off') return;
+            setFanLoading(true);
+            const newState = fanState === 'forward' ? 'reverse' : 'forward';
+            setFanState(newState);
+            updateGuestSync();
+            setTimeout(() => setFanLoading(false), 250);
+            return;
+        }
         setFanLoading(true);
         
         if (fanState === 'forward') {
@@ -275,10 +365,22 @@ if ((text.includes("close door")) && door){
             });
         }
     };
-    const toggleBuzzer = async () => await updateDoc(deviceRef, { "buzzer.state": buzzer ? "off" : "on" });
+    const toggleBuzzer = async () => {
+        if (isGuest || !deviceRef) {
+            setBuzzer((prev) => !prev);
+            updateGuestSync();
+            return;
+        }
+
+        await updateDoc(deviceRef, { "buzzer.state": buzzer ? "off" : "on" });
+    };
 
     const handleOrangeLightChange = async (val: number) => {
         setOrangeLight(val);
+        if (isGuest || !deviceRef) {
+            updateGuestSync();
+            return;
+        }
         await updateDoc(deviceRef, { "orange_light.value": val });
     };
 

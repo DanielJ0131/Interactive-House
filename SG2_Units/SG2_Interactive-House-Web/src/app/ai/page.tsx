@@ -3,12 +3,14 @@
 import { useState } from "react";
 import { PageShell } from "@/components/pageShell";
 import TopHeader from "@/components/TopHeader";
+import GuestGate from "@/components/GuestGate";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { doc, updateDoc } from "firebase/firestore";
 import { db, model } from "@/utils/firebaseConfig";
 import Link from "next/link";
 import { CaretLeft, PaperPlaneRight } from "@phosphor-icons/react";
+import { useGuestMode } from "@/app/hooks/useGuestMode";
 
 type ChatMessage = {
   id: string;
@@ -113,6 +115,7 @@ async function executeDeviceCommand(
 }
 
 export default function AIPage() {
+  const isGuest = useGuestMode();
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
@@ -129,6 +132,7 @@ export default function AIPage() {
   };
 
   const handleSend = async () => {
+    if (isGuest) return;
     const trimmed = message.trim();
     if (!trimmed || loading) return;
 
@@ -224,6 +228,13 @@ ${trimmed}
     <TopHeader />
     <PageShell title="AI" subtitle="AI Control">
       <div className="flex flex-col gap-6 max-w-4xl mx-auto">
+        {isGuest ? (
+          <GuestGate
+            title="Sign in required"
+            message="You need to sign up or log in to use AI control in guest mode."
+          />
+        ) : (
+          <>
 
         {/* BACK TO HUB BUTTON - Matches Hub Styling */}
         <Link
@@ -295,6 +306,8 @@ ${trimmed}
             <PaperPlaneRight size={22} weight="fill" />
           </button>
         </div>
+          </>
+        )}
       </div>
     </PageShell>
   </main>
