@@ -2,12 +2,10 @@
 
 
 import { Suspense, useEffect, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 function EmergencyContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const from = searchParams.get("from");
 
   const [confirmed, setConfirmed] = useState(false);
   const [seconds, setSeconds] = useState(0);
@@ -37,11 +35,6 @@ function EmergencyContent() {
 
   const goBackToPreviousPage = () => {
     stopRinging();
-
-    if (from === "guest_hub") {
-      router.push("/guest_hub");
-      return;
-    }
 
     router.push("/hub");
   };

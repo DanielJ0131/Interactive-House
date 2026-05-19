@@ -2,10 +2,12 @@
 import { useEffect, useState, useRef } from "react";
 import { PageShell } from "@/components/pageShell";
 import TopHeader from "@/components/TopHeader";
+import GuestGate from "@/components/GuestGate";
 import { auth, db } from "@/utils/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import { collection, onSnapshot, setDoc, deleteDoc, doc, getDoc, type DocumentData } from "firebase/firestore";
 import Link from "next/link";
+import { useGuestMode } from "@/app/hooks/useGuestMode";
 import {
     MusicNotes,
     CaretLeft,
@@ -164,14 +166,14 @@ type PianoSelection = { type: "white" | "black"; index: number } | null;
 
 const SEMITONE_RATIO = Math.pow(2, 1 / 12);
 
-const getPianoSelection = (frequency: number | null): PianoSelection => {
+const getPianoSelection = (frequency: number | null, notes: typeof PIANO_NOTES = PIANO_NOTES): PianoSelection => {
     const activeNoteName = frequencyToNoteName(frequency);
     const activeNoteClass = frequencyToNoteClass(frequency);
 
     if (!activeNoteClass) return null;
 
-    for (let i = 0; i < PIANO_NOTES.length; i += 1) {
-        const note = PIANO_NOTES[i];
+    for (let i = 0; i < notes.length; i += 1) {
+        const note = notes[i];
         const whiteNoteName = frequencyToNoteName(note.freq);
         if (whiteNoteName && whiteNoteName === activeNoteName) {
             return { type: "white", index: i };
@@ -187,11 +189,11 @@ const getPianoSelection = (frequency: number | null): PianoSelection => {
 
     const isSharp = activeNoteClass.includes("#");
     const baseLabel = isSharp ? activeNoteClass.replace("#", "") : activeNoteClass;
-    const candidates = PIANO_NOTES.map((note, index) => ({ note, index }))
+    const candidates = notes.map((note, index) => ({ note, index }))
         .filter(({ note, index }) => {
             if (note.label !== baseLabel) return false;
             if (isSharp) {
-                return ["C", "D", "F", "G", "A"].includes(note.label) && index < PIANO_NOTES.length - 1;
+                return ["C", "D", "F", "G", "A"].includes(note.label) && index < notes.length - 1;
             }
             return true;
         });
@@ -320,6 +322,7 @@ const playInstrumentNote = (params: {
 };
 
 export default function MusicPage() {
+    const isGuest = useGuestMode();
     const [songs, setSongs] = useState<Song[]>([]);
     const [selectedSong, setSelectedSong] = useState<Song | null>(null);
     const [activeSongId, setActiveSongId] = useState<string | null>(null);
@@ -340,6 +343,7 @@ export default function MusicPage() {
     const [isSavingMelody, setIsSavingMelody] = useState(false);
     const [isUpdatingMelody, setIsUpdatingMelody] = useState(false);
     const [deletingMelodyId, setDeletingMelodyId] = useState<string | null>(null);
+    const [isMobilePiano, setIsMobilePiano] = useState(false);
     const audioCtxRef = useRef<AudioContext | null>(null);
     const audioReverbRef = useRef<{ convolver: ConvolverNode; wetGain: GainNode; dryGain: GainNode } | null>(null);
     const speedMultiplierRef = useRef(SPEED_MULTIPLIERS.NORMAL);
@@ -347,6 +351,10 @@ export default function MusicPage() {
     const [activeFrequency, setActiveFrequency] = useState<number | null>(null);
 
     const updatePlaybackState = async (songId: string, isPlaying: boolean) => {
+        if (isGuest) {
+            return;
+        }
+
         if (!songId || !isAuthenticated || !isAdmin) {
             return;
         }
@@ -440,6 +448,13 @@ export default function MusicPage() {
     };
 
     useEffect(() => {
+        if (isGuest) {
+            setIsAuthReady(true);
+            setIsAuthenticated(false);
+            setIsAdmin(false);
+            return;
+        }
+
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             setIsAuthenticated(Boolean(user));
             setIsAuthReady(true);
@@ -473,9 +488,16 @@ export default function MusicPage() {
         });
 
         return unsubscribe;
-    }, []);
+    }, [isGuest]);
 
     useEffect(() => {
+        if (isGuest) {
+            setIsLoading(false);
+            setLoadError(null);
+            setSongs([]);
+            return;
+        }
+
         setIsLoading(true);
         setLoadError(null);
 
@@ -515,11 +537,26 @@ export default function MusicPage() {
             unsubscribe();
             stopMusic();
         };
-    }, []);
+    }, [isGuest]);
 
     useEffect(() => {
         instrumentRef.current = instrument;
     }, [instrument]);
+
+    useEffect(() => {
+        const mediaQuery = window.matchMedia("(max-width: 640px)");
+
+        const updateMobilePiano = () => {
+            setIsMobilePiano(mediaQuery.matches);
+        };
+
+        updateMobilePiano();
+        mediaQuery.addEventListener("change", updateMobilePiano);
+
+        return () => {
+            mediaQuery.removeEventListener("change", updateMobilePiano);
+        };
+    }, []);
 
     useEffect(() => {
         setSelectedSong((prev) => {
@@ -704,345 +741,361 @@ export default function MusicPage() {
         }
     };
 
-const pianoSelection = getPianoSelection(activeFrequency);
+    const displayedPianoNotes = isMobilePiano ? PIANO_NOTES.slice(0, 7) : PIANO_NOTES;
+    const pianoSelection = getPianoSelection(activeFrequency, displayedPianoNotes);
 
     return (
         <main className="min-h-screen bg-transparent">
-        <TopHeader />
-        <PageShell title="Music" subtitle="Music Control ">
-            <div className="max-w-5xl mx-auto p-4 md:p-6">
+            <TopHeader />
+            <PageShell title="Music" subtitle="Music Control ">
+                <div className="max-w-5xl mx-auto p-4 md:p-6">
 
-                {/* TOP NAVIGATION & CONTROLS */}
-                <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-12">
-                    <Link
-                        href="/hub"
-                        className="group flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md text-white/80 font-bold text-sm hover:bg-white/10 transition-all shadow-xl"
-                    >
-                        <CaretLeft size={18} weight="bold" className="group-hover:-translate-x-1 transition-transform" />
-                        Back to hub
-                    </Link>
-
-                    <div className="flex flex-col gap-3 items-end">
-                        {/* SPEED SELECTOR - HUB STYLE */}
-                        <div className="flex bg-black/20 p-1.5 rounded-2xl border border-white/5 backdrop-blur-lg">
-                            {Object.entries(SPEED_MULTIPLIERS).map(([label, value]) => (
-                                <button
-                                    key={label}
-                                    onClick={() => {
-                                        setSpeedMultiplier(value);
-                                        speedMultiplierRef.current = value;
-                                    }}
-                                    className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all ${speedMultiplier === value
-                                            ? 'bg-[var(--color-accent)] text-black shadow-lg scale-105'
-                                            : 'text-white/40 hover:text-white/70'
-                                        }`}
+                    {/* 1. Hold off rendering while we check hydration status */}
+                    {isGuest === null ? (
+                        <div className="flex items-center justify-center min-h-[60vh] text-white/20 uppercase tracking-[0.2em] font-black text-xs animate-pulse">
+                            Loading Music System...
+                        </div>
+                    ) : isGuest === true ? (
+                        /* 2. Confirmed Guest */
+                        <GuestGate
+                            title="Sign in required"
+                            message="You need to sign up or log in to use music controls in guest mode."
+                        />
+                    ) : (
+                        /* 3. Confirmed Authenticated User */
+                        <>
+                            {/* TOP NAVIGATION & CONTROLS */}
+                            <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-12">
+                                <Link
+                                    href="/hub"
+                                    className="group flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md text-white/80 font-bold text-sm hover:bg-white/10 transition-all shadow-xl"
                                 >
-                                    {label}
-                                </button>
-                            ))}
-                        </div>
+                                    <CaretLeft size={18} weight="bold" className="group-hover:-translate-x-1 transition-transform" />
+                                    Back to hub
+                                </Link>
 
-                        {/* INSTRUMENT SELECTOR */}
-                        <div className="flex bg-black/20 p-1.5 rounded-2xl border border-white/5 backdrop-blur-lg">
-                            {INSTRUMENT_OPTIONS.map((option) => (
-                                <button
-                                    key={option.value}
-                                    onClick={() => setInstrument(option.value)}
-                                    className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all ${instrument === option.value
-                                            ? 'bg-[var(--color-accent)] text-black shadow-lg scale-105'
-                                            : 'text-white/40 hover:text-white/70'
-                                        }`}
-                                >
-                                    {option.label}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-
-                <div className="mb-10 rounded-3xl bg-white/5 border border-white/10 p-5 shadow-xl backdrop-blur-md w-full">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-white font-black text-sm">
-                            Current Melody
-                        </h3>
-
-                        <span className="px-3 py-1 rounded-full bg-[var(--color-accent-soft)] text-[var(--color-accent)] text-[9px] font-black uppercase">
-                            {activeSongId ? "ON" : "OFF"}
-                        </span>
-                    </div>
-
-                    <div className="rounded-2xl bg-black/30 p-4 border border-white/5">
-                        <div className="flex items-center justify-between mb-4">
-                            <p className="text-white/70 text-[9px] font-black uppercase tracking-[0.2em]">
-                                Mini Piano
-                            </p>
-                            <p className="text-white/40 text-[9px] font-black uppercase tracking-[0.2em]">
-                                Playing Now
-                            </p>
-                        </div>
-
-                        <div
-                            className="grid gap-1"
-                            style={{ gridTemplateColumns: "repeat(16, minmax(0, 1fr))" }}
-                        >
-                            {PIANO_NOTES.map((note, index) => {
-                                const isWhiteActive = pianoSelection?.type === "white" && pianoSelection.index === index;
-                                const isBlackActive = pianoSelection?.type === "black" && pianoSelection.index === index;
-
-                                return (
-                                <div
-                                    key={`${note.label}-${index}`}
-                                    className={`relative h-28 rounded-b-lg border border-white/10 transition-all flex items-end justify-center pb-2 text-xs font-black ${
-                                        isWhiteActive
-                                            ? "bg-[var(--color-accent)] text-black shadow-lg"
-                                            : "bg-white text-black/60"
-                                    }`}
-                                 >
-                                {["C", "D", "F", "G", "A"].includes(note.label) && index !== PIANO_NOTES.length - 1 && (
-                                    <div className={`absolute -top-1 right-[-12px] z-10 w-5 h-14 rounded-b-md shadow-lg transition-all flex items-center justify-center ${
-                                        isBlackActive
-                                        ? "bg-[var(--color-accent)] brightness-110"
-                                        : "bg-black"
-                                    }`}
-                                    >
-                                        <span className={`text-[8px] font-black ${isBlackActive ? "text-black" : "text-white"}`}>
-                                            {note.label}#
-                                        </span>
+                                <div className="flex flex-col gap-3 items-end">
+                                    {/* SPEED SELECTOR - HUB STYLE */}
+                                    <div className="flex bg-black/20 p-1.5 rounded-2xl border border-white/5 backdrop-blur-lg">
+                                        {Object.entries(SPEED_MULTIPLIERS).map(([label, value]) => (
+                                            <button
+                                                key={label}
+                                                onClick={() => {
+                                                    setSpeedMultiplier(value);
+                                                    speedMultiplierRef.current = value;
+                                                }}
+                                                className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all ${speedMultiplier === value
+                                                    ? 'bg-[var(--color-accent)] text-black shadow-lg scale-105'
+                                                    : 'text-white/40 hover:text-white/70'
+                                                    }`}
+                                            >
+                                                {label}
+                                            </button>
+                                        ))}
                                     </div>
-                                )}
 
-                                    {note.label}
+                                    {/* INSTRUMENT SELECTOR */}
+                                    <div className="flex bg-black/20 p-1.5 rounded-2xl border border-white/5 backdrop-blur-lg">
+                                        {INSTRUMENT_OPTIONS.map((option) => (
+                                            <button
+                                                key={option.value}
+                                                onClick={() => setInstrument(option.value)}
+                                                className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all ${instrument === option.value
+                                                    ? 'bg-[var(--color-accent)] text-black shadow-lg scale-105'
+                                                    : 'text-white/40 hover:text-white/70'
+                                                    }`}
+                                            >
+                                                {option.label}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                </div>
+                            </div>
 
-                <h2 className="text-[10px] tracking-[0.4em] text-[var(--color-accent)] font-black mb-6 uppercase opacity-80 flex items-center gap-2">
-                    <MusicNotes size={16} weight="fill" />
-                    Available Tracks
-                </h2>
+                            <div className="mb-10 rounded-3xl bg-white/5 border border-white/10 p-5 shadow-xl backdrop-blur-md w-full">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-white font-black text-sm">
+                                        Current Melody
+                                    </h3>
 
-                {isLoading && (
-                    <div className="mb-4 rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-white/70 text-sm">
-                        Loading melodies...
-                    </div>
-                )}
-
-                {loadError && (
-                    <div className="mb-4 rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-[var(--color-danger)] text-sm">
-                        {loadError}
-                    </div>
-                )}
-
-                {/* TRACK GRID */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
-                    {songs.map((song) => (
-                        <div
-                            key={song.id}
-                            className={`group rounded-3xl backdrop-blur-md border transition-all duration-500 p-5 flex flex-col gap-5 shadow-xl ${activeSongId === song.id
-                                    ? "bg-white/15 border-[var(--color-accent)]"
-                                    : "bg-white/5 border-white/10 hover:bg-white/10"
-                                }`}
-                        >
-                            <div className="flex items-center gap-4">
-                                {/* ICON CONTAINER */}
-                                <div className={`h-14 w-14 shrink-0 rounded-2xl flex items-center justify-center transition-all duration-500 ${activeSongId === song.id
-                                        ? "bg-[var(--color-accent-soft)] text-[var(--color-accent)] scale-110"
-                                        : "bg-white/10 text-white/40 group-hover:text-white/70"
-                                    }`}>
-                                    <MusicNotes size={32} weight={activeSongId === song.id ? "fill" : "regular"} />
+                                    <span className="px-3 py-1 rounded-full bg-[var(--color-accent-soft)] text-[var(--color-accent)] text-[9px] font-black uppercase">
+                                        {activeSongId ? "ON" : "OFF"}
+                                    </span>
                                 </div>
 
-                                <div className="min-w-0">
-                                    <div className="overflow-hidden">
-                                        <p className="song-marquee text-lg font-bold text-white tracking-tight leading-snug whitespace-nowrap">
-                                            {song.name}
+                                <div className="rounded-2xl bg-black/30 p-4 border border-white/5">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <p className="text-white/70 text-[9px] font-black uppercase tracking-[0.2em]">
+                                            Mini Piano
+                                        </p>
+                                        <p className="text-white/40 text-[9px] font-black uppercase tracking-[0.2em]">
+                                            Playing Now
                                         </p>
                                     </div>
-                                    <p className="text-white/60 text-[10px] tracking-[0.2em] uppercase font-black italic">
-                                        {song.artist}
-                                    </p>
+
+                                    <div
+                                        className="grid gap-1"
+                                        style={{ gridTemplateColumns: `repeat(${displayedPianoNotes.length}, minmax(0, 1fr))` }}
+                                    >
+                                        {displayedPianoNotes.map((note, index) => {
+                                            const isWhiteActive = pianoSelection?.type === "white" && pianoSelection.index === index;
+                                            const isBlackActive = pianoSelection?.type === "black" && pianoSelection.index === index;
+                                            const isLastMobileWhiteKey = isMobilePiano && index === displayedPianoNotes.length - 1;
+
+                                            return (
+                                                <div
+                                                    key={`${note.label}-${index}`}
+                                                    className={`relative h-24 sm:h-28 rounded-b-lg border border-white/10 transition-all flex items-end justify-center pb-2 text-xs font-black ${isWhiteActive
+                                                            ? "bg-[var(--color-accent)] text-black shadow-lg"
+                                                            : "bg-white text-black/60"
+                                                        }`}
+                                                >
+                                                    {["C", "D", "F", "G", "A"].includes(note.label) && !isLastMobileWhiteKey && (
+                                                        <div className={`absolute -top-1 right-[-12px] z-10 w-5 h-14 rounded-b-md shadow-lg transition-all flex items-center justify-center ${isBlackActive
+                                                                ? "bg-[var(--color-accent)] brightness-110"
+                                                                : "bg-black"
+                                                            }`}
+                                                        >
+                                                            <span className={`text-[8px] font-black ${isBlackActive ? "text-black" : "text-white"}`}>
+                                                                {note.label}#
+                                                            </span>
+                                                        </div>
+                                                    )}
+
+                                                    {note.label}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                             </div>
 
-                            {/* ACTION BUTTON */}
-                            <button
-                                onClick={() => activeSongId === song.id
-                                    ? stopMusic(song.id)
-                                    : playMusic(song.id, song.frequencies, song.noteDelays)}
-                                className={`w-full flex items-center justify-center gap-2 px-6 py-3 rounded-full text-xs font-black tracking-widest transition-all active:scale-95 ${activeSongId === song.id
-                                            ? "bg-[var(--color-danger)] text-white shadow-lg shadow-[var(--color-danger-glow)]"
-                                            : "bg-[var(--color-accent)] text-black shadow-lg hover:scale-105"
-                                    }`}
-                            >
-                                {activeSongId === song.id ? (
-                                    <>
-                                        <Stop size={18} weight="fill" />
-                                        STOP
-                                    </>
-                                ) : (
-                                    <>
-                                        <Play size={18} weight="fill" />
-                                        PLAY
-                                    </>
-                                )}
-                            </button>
-                        </div>
-                    ))}
-                </div>
+                            <h2 className="text-[10px] tracking-[0.4em] text-[var(--color-accent)] font-black mb-6 uppercase opacity-80 flex items-center gap-2">
+                                <MusicNotes size={16} weight="fill" />
+                                Available Tracks
+                            </h2>
 
-                {songs.length === 0 && !isLoading && !loadError && (
-                    <div className="mt-4 rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-white/60 text-sm">
-                        No melodies available yet.
-                    </div>
-                )}
+                            {isLoading && (
+                                <div className="mb-4 rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-white/70 text-sm">
+                                    Loading melodies...
+                                </div>
+                            )}
 
-                <h2 className="text-[10px] tracking-[0.4em] text-[var(--color-accent)] font-black mt-12 mb-6 uppercase opacity-80">
-                    Admin Dashboard
-                </h2>
+                            {loadError && (
+                                <div className="mb-4 rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-[var(--color-danger)] text-sm">
+                                    {loadError}
+                                </div>
+                            )}
 
-                {!isAuthReady && (
-                    <div className="rounded-3xl bg-white/5 border border-white/10 p-6 shadow-xl backdrop-blur-md text-white/70 text-sm">
-                        Checking your account...
-                    </div>
-                )}
-
-                {isAuthReady && !isAuthenticated && (
-                    <div className="rounded-3xl bg-white/5 border border-white/10 p-6 shadow-xl backdrop-blur-md text-white/70 text-sm">
-                        Sign in with an admin account to manage melodies.
-                    </div>
-                )}
-
-                {isAuthReady && isAuthenticated && !isAdmin && (
-                    <div className="rounded-3xl bg-white/5 border border-white/10 p-6 shadow-xl backdrop-blur-md text-white/70 text-sm">
-                        Admin access required to edit or delete melodies.
-                    </div>
-                )}
-
-                {isAuthReady && isAuthenticated && isAdmin && (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div className="rounded-3xl bg-white/5 border border-white/10 p-6 shadow-xl backdrop-blur-md">
-                            <h3 className="text-white font-black text-sm mb-4">Add Melody</h3>
-                            <div className="space-y-3">
-                                <input
-                                    value={newMelodyName}
-                                    onChange={(event) => setNewMelodyName(event.target.value)}
-                                    placeholder="Melody name"
-                                    className="w-full rounded-2xl bg-black/30 border border-white/10 px-4 py-3 text-white placeholder:text-white/40 outline-none focus:border-[var(--color-accent)]"
-                                />
-                                <input
-                                    value={newMelodyArtist}
-                                    onChange={(event) => setNewMelodyArtist(event.target.value)}
-                                    placeholder="Artist (optional)"
-                                    className="w-full rounded-2xl bg-black/30 border border-white/10 px-4 py-3 text-white placeholder:text-white/40 outline-none focus:border-[var(--color-accent)]"
-                                />
-                                <textarea
-                                    value={newMelodyFrequencies}
-                                    onChange={(event) => setNewMelodyFrequencies(event.target.value)}
-                                    placeholder="Frequencies (0 for rest), e.g. 262, 294, 0, 330"
-                                    rows={3}
-                                    className="w-full rounded-2xl bg-black/30 border border-white/10 px-4 py-3 text-white placeholder:text-white/40 outline-none focus:border-[var(--color-accent)]"
-                                />
-                                <textarea
-                                    value={newMelodyDelays}
-                                    onChange={(event) => setNewMelodyDelays(event.target.value)}
-                                    placeholder="Arduino delays (ms), e.g. 500, 500, 250, 750"
-                                    rows={3}
-                                    className="w-full rounded-2xl bg-black/30 border border-white/10 px-4 py-3 text-white placeholder:text-white/40 outline-none focus:border-[var(--color-accent)]"
-                                />
-                                <button
-                                    onClick={handleAddMelody}
-                                    disabled={isSavingMelody}
-                                    className={`w-full rounded-2xl px-4 py-3 text-xs font-black uppercase tracking-[0.2em] transition-all ${isSavingMelody
-                                            ? "bg-white/10 text-white/40"
-                                            : "bg-[var(--color-accent)] text-black shadow-lg"
-                                        }`}
-                                >
-                                    {isSavingMelody ? "Saving..." : "Save Melody"}
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="rounded-3xl bg-white/5 border border-white/10 p-6 shadow-xl backdrop-blur-md">
-                            <h3 className="text-white font-black text-sm mb-4">Manage Melody</h3>
-                            {songs.length === 0 ? (
-                                <div className="text-white/60 text-sm">Add a melody to start editing.</div>
-                            ) : (
-                                <div className="space-y-4">
-                                    <select
-                                        value={selectedSong?.id ?? ""}
-                                        onChange={(event) => {
-                                            const next = songs.find((song) => song.id === event.target.value) || null;
-                                            setSelectedSong(next);
-                                        }}
-                                        className="w-full rounded-2xl bg-black/30 border border-white/10 px-4 py-3 text-white outline-none focus:border-[var(--color-accent)]"
+                            {/* TRACK GRID */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+                                {songs.map((song) => (
+                                    <div
+                                        key={song.id}
+                                        className={`group rounded-3xl backdrop-blur-md border transition-all duration-500 p-5 flex flex-col gap-5 shadow-xl ${activeSongId === song.id
+                                            ? "bg-white/15 border-[var(--color-accent)]"
+                                            : "bg-white/5 border-white/10 hover:bg-white/10"
+                                            }`}
                                     >
-                                        {songs.map((song) => (
-                                            <option key={song.id} value={song.id} className="text-black">
-                                                {song.name}
-                                            </option>
-                                        ))}
-                                    </select>
+                                        <div className="flex items-center gap-4">
+                                            {/* ICON CONTAINER */}
+                                            <div className={`h-14 w-14 shrink-0 rounded-2xl flex items-center justify-center transition-all duration-500 ${activeSongId === song.id
+                                                ? "bg-[var(--color-accent-soft)] text-[var(--color-accent)] scale-110"
+                                                : "bg-white/10 text-white/40 group-hover:text-white/70"
+                                                }`}>
+                                                <MusicNotes size={32} weight={activeSongId === song.id ? "fill" : "regular"} />
+                                            </div>
 
-                                    <div className="rounded-2xl bg-black/20 border border-white/10 px-4 py-3 text-white/70 text-xs">
-                                        {selectedSong?.artist ?? "Unknown"}
+                                            <div className="min-w-0">
+                                                <div className="overflow-hidden">
+                                                    <p className="song-marquee text-lg font-bold text-white tracking-tight leading-snug whitespace-nowrap">
+                                                        {song.name}
+                                                    </p>
+                                                </div>
+                                                <p className="text-white/60 text-[10px] tracking-[0.2em] uppercase font-black italic">
+                                                    {song.artist}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* ACTION BUTTON */}
+                                        <button
+                                            onClick={() => activeSongId === song.id
+                                                ? stopMusic(song.id)
+                                                : playMusic(song.id, song.frequencies, song.noteDelays)}
+                                            className={`w-full flex items-center justify-center gap-2 px-6 py-3 rounded-full text-xs font-black tracking-widest transition-all active:scale-95 ${activeSongId === song.id
+                                                ? "bg-[var(--color-danger)] text-white shadow-lg shadow-[var(--color-danger-glow)]"
+                                                : "bg-[var(--color-accent)] text-black shadow-lg hover:scale-105"
+                                                }`}
+                                        >
+                                            {activeSongId === song.id ? (
+                                                <>
+                                                    <Stop size={18} weight="fill" />
+                                                    STOP
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Play size={18} weight="fill" />
+                                                    PLAY
+                                                </>
+                                            )}
+                                        </button>
                                     </div>
+                                ))}
+                            </div>
 
-                                    <button
-                                        onClick={() => setIsEditPanelOpen((prev) => !prev)}
-                                        className="w-full rounded-2xl border border-white/10 px-4 py-3 text-xs font-black uppercase tracking-[0.2em] text-white/70 hover:text-white"
-                                    >
-                                        {isEditPanelOpen ? "Hide Editor" : "Edit Frequencies / Delays"}
-                                    </button>
+                            {songs.length === 0 && !isLoading && !loadError && (
+                                <div className="mt-4 rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-white/60 text-sm">
+                                    No melodies available yet.
+                                </div>
+                            )}
 
-                                    {isEditPanelOpen && (
+                            <h2 className="text-[10px] tracking-[0.4em] text-[var(--color-accent)] font-black mt-12 mb-6 uppercase opacity-80">
+                                Admin Dashboard
+                            </h2>
+
+                            {!isAuthReady && (
+                                <div className="rounded-3xl bg-white/5 border border-white/10 p-6 shadow-xl backdrop-blur-md text-white/70 text-sm">
+                                    Checking your account...
+                                </div>
+                            )}
+
+                            {isAuthReady && !isAuthenticated && (
+                                <div className="rounded-3xl bg-white/5 border border-white/10 p-6 shadow-xl backdrop-blur-md text-white/70 text-sm">
+                                    Sign in with an admin account to manage melodies.
+                                </div>
+                            )}
+
+                            {isAuthReady && isAuthenticated && !isAdmin && (
+                                <div className="rounded-3xl bg-white/5 border border-white/10 p-6 shadow-xl backdrop-blur-md text-white/70 text-sm">
+                                    Admin access required to edit or delete melodies.
+                                </div>
+                            )}
+
+                            {isAuthReady && isAuthenticated && isAdmin && (
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                    <div className="rounded-3xl bg-white/5 border border-white/10 p-6 shadow-xl backdrop-blur-md">
+                                        <h3 className="text-white font-black text-sm mb-4">Add Melody</h3>
                                         <div className="space-y-3">
+                                            <input
+                                                value={newMelodyName}
+                                                onChange={(event) => setNewMelodyName(event.target.value)}
+                                                placeholder="Melody name"
+                                                className="w-full rounded-2xl bg-black/30 border border-white/10 px-4 py-3 text-white placeholder:text-white/40 outline-none focus:border-[var(--color-accent)]"
+                                            />
+                                            <input
+                                                value={newMelodyArtist}
+                                                onChange={(event) => setNewMelodyArtist(event.target.value)}
+                                                placeholder="Artist (optional)"
+                                                className="w-full rounded-2xl bg-black/30 border border-white/10 px-4 py-3 text-white placeholder:text-white/40 outline-none focus:border-[var(--color-accent)]"
+                                            />
                                             <textarea
-                                                value={editMelodyFrequencies}
-                                                onChange={(event) => setEditMelodyFrequencies(event.target.value)}
-                                                placeholder="Frequencies (0 for rest)"
+                                                value={newMelodyFrequencies}
+                                                onChange={(event) => setNewMelodyFrequencies(event.target.value)}
+                                                placeholder="Frequencies (0 for rest), e.g. 262, 294, 0, 330"
                                                 rows={3}
                                                 className="w-full rounded-2xl bg-black/30 border border-white/10 px-4 py-3 text-white placeholder:text-white/40 outline-none focus:border-[var(--color-accent)]"
                                             />
                                             <textarea
-                                                value={editMelodyDelays}
-                                                onChange={(event) => setEditMelodyDelays(event.target.value)}
-                                                placeholder="Arduino delays (ms)"
+                                                value={newMelodyDelays}
+                                                onChange={(event) => setNewMelodyDelays(event.target.value)}
+                                                placeholder="Arduino delays (ms), e.g. 500, 500, 250, 750"
                                                 rows={3}
                                                 className="w-full rounded-2xl bg-black/30 border border-white/10 px-4 py-3 text-white placeholder:text-white/40 outline-none focus:border-[var(--color-accent)]"
                                             />
                                             <button
-                                                onClick={handleUpdateMelody}
-                                                disabled={isUpdatingMelody}
-                                                className={`w-full rounded-2xl px-4 py-3 text-xs font-black uppercase tracking-[0.2em] transition-all ${isUpdatingMelody
-                                                        ? "bg-white/10 text-white/40"
-                                                        : "bg-[var(--color-accent)] text-black shadow-lg"
+                                                onClick={handleAddMelody}
+                                                disabled={isSavingMelody}
+                                                className={`w-full rounded-2xl px-4 py-3 text-xs font-black uppercase tracking-[0.2em] transition-all ${isSavingMelody
+                                                    ? "bg-white/10 text-white/40"
+                                                    : "bg-[var(--color-accent)] text-black shadow-lg"
                                                     }`}
                                             >
-                                                {isUpdatingMelody ? "Updating..." : "Update Melody"}
+                                                {isSavingMelody ? "Saving..." : "Save Melody"}
                                             </button>
                                         </div>
-                                    )}
+                                    </div>
 
-                                    <button
-                                        onClick={handleDeleteMelody}
-                                        disabled={Boolean(deletingMelodyId)}
-                                        className={`w-full rounded-2xl px-4 py-3 text-xs font-black uppercase tracking-[0.2em] transition-all ${deletingMelodyId
-                                                ? "bg-white/10 text-white/40"
-                                                : "bg-[var(--color-danger)] text-white shadow-lg"
-                                            }`}
-                                    >
-                                        {deletingMelodyId ? "Deleting..." : "Delete Melody"}
-                                    </button>
+                                    <div className="rounded-3xl bg-white/5 border border-white/10 p-6 shadow-xl backdrop-blur-md">
+                                        <h3 className="text-white font-black text-sm mb-4">Manage Melody</h3>
+                                        {songs.length === 0 ? (
+                                            <div className="text-white/60 text-sm">Add a melody to start editing.</div>
+                                        ) : (
+                                            <div className="space-y-4">
+                                                <select
+                                                    value={selectedSong?.id ?? ""}
+                                                    onChange={(event) => {
+                                                        const next = songs.find((song) => song.id === event.target.value) || null;
+                                                        setSelectedSong(next);
+                                                    }}
+                                                    className="w-full rounded-2xl bg-black/30 border border-white/10 px-4 py-3 text-white outline-none focus:border-[var(--color-accent)]"
+                                                >
+                                                    {songs.map((song) => (
+                                                        <option key={song.id} value={song.id} className="text-black">
+                                                            {song.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+
+                                                <div className="rounded-2xl bg-black/20 border border-white/10 px-4 py-3 text-white/70 text-xs">
+                                                    {selectedSong?.artist ?? "Unknown"}
+                                                </div>
+
+                                                <button
+                                                    onClick={() => setIsEditPanelOpen((prev) => !prev)}
+                                                    className="w-full rounded-2xl border border-white/10 px-4 py-3 text-xs font-black uppercase tracking-[0.2em] text-white/70 hover:text-white"
+                                                >
+                                                    {isEditPanelOpen ? "Hide Editor" : "Edit Frequencies / Delays"}
+                                                </button>
+
+                                                {isEditPanelOpen && (
+                                                    <div className="space-y-3">
+                                                        <textarea
+                                                            value={editMelodyFrequencies}
+                                                            onChange={(event) => setEditMelodyFrequencies(event.target.value)}
+                                                            placeholder="Frequencies (0 for rest)"
+                                                            rows={3}
+                                                            className="w-full rounded-2xl bg-black/30 border border-white/10 px-4 py-3 text-white placeholder:text-white/40 outline-none focus:border-[var(--color-accent)]"
+                                                        />
+                                                        <textarea
+                                                            value={editMelodyDelays}
+                                                            onChange={(event) => setEditMelodyDelays(event.target.value)}
+                                                            placeholder="Arduino delays (ms)"
+                                                            rows={3}
+                                                            className="w-full rounded-2xl bg-black/30 border border-white/10 px-4 py-3 text-white placeholder:text-white/40 outline-none focus:border-[var(--color-accent)]"
+                                                        />
+                                                        <button
+                                                            onClick={handleUpdateMelody}
+                                                            disabled={isUpdatingMelody}
+                                                            className={`w-full rounded-2xl px-4 py-3 text-xs font-black uppercase tracking-[0.2em] transition-all ${isUpdatingMelody
+                                                                ? "bg-white/10 text-white/40"
+                                                                : "bg-[var(--color-accent)] text-black shadow-lg"
+                                                                }`}
+                                                        >
+                                                            {isUpdatingMelody ? "Updating..." : "Update Melody"}
+                                                        </button>
+                                                    </div>
+                                                )}
+
+                                                <button
+                                                    onClick={handleDeleteMelody}
+                                                    disabled={Boolean(deletingMelodyId)}
+                                                    className={`w-full rounded-2xl px-4 py-3 text-xs font-black uppercase tracking-[0.2em] transition-all ${deletingMelodyId
+                                                        ? "bg-white/10 text-white/40"
+                                                        : "bg-[var(--color-danger)] text-white shadow-lg"
+                                                        }`}
+                                                >
+                                                    {deletingMelodyId ? "Deleting..." : "Delete Melody"}
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             )}
-                        </div>
-                    </div>
-                )}
-            </div>
-        </PageShell>
+                        </>
+                    )}
+                </div>
+            </PageShell>
         </main>
     );
 }

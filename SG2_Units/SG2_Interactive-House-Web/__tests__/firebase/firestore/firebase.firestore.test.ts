@@ -1,44 +1,33 @@
-/**
- * @jest-environment node
- */
+import { getFirestore } from "firebase/firestore";
+import { db } from "@/utils/firebaseConfig";
 
-import { describe, expect, it, beforeEach } from "@jest/globals";
+jest.mock("firebase/app", () => {
+  const fakeApp = { name: "mock-app" };
 
-jest.mock("firebase/app", () => ({
-  initializeApp: jest.fn(() => ({ __mocked: true })),
-  getApps: jest.fn(() => []),
-  getApp: jest.fn(() => ({ __mocked: true })),
-}));
+  return {
+    initializeApp: jest.fn(() => fakeApp),
+    getApps: jest.fn(() => []),
+    getApp: jest.fn(() => fakeApp),
+  };
+});
 
 jest.mock("firebase/auth", () => ({
-  getAuth: jest.fn(() => ({ __mockAuth: true })),
+  getAuth: jest.fn(() => ({ name: "mock-auth" })),
 }));
 
 jest.mock("firebase/firestore", () => ({
-  getFirestore: jest.fn(() => ({ __mockDb: true })),
+  getFirestore: jest.fn(() => ({ name: "mock-db" })),
 }));
 
 jest.mock("firebase/ai", () => ({
-  getAI: jest.fn(() => ({ __mockAi: true })),
-  getGenerativeModel: jest.fn(() => ({ __mockModel: true })),
-  GoogleAIBackend: jest.fn(function() {
-    this.name = "GoogleAIBackend";
-  }),
+  getAI: jest.fn(() => ({ name: "mock-ai" })),
+  getGenerativeModel: jest.fn(() => ({ name: "mock-model" })),
+  GoogleAIBackend: jest.fn(),
 }));
 
-describe("Firebase Firestore Config", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  it("loads db and auth exports successfully", async () => {
-    const config = await import("@/utils/firebaseConfig");
-    expect(config.db).toBeTruthy();
-    expect(config.auth).toBeTruthy();
-  });
-
-  it("exports valid default app instance", async () => {
-    const config = await import("@/utils/firebaseConfig");
-    expect(config.default).toBeDefined();
+describe("Firebase Firestore config", () => {
+  test("exports Firebase Firestore database instance", () => {
+    expect(getFirestore).toHaveBeenCalledTimes(1);
+    expect(db).toEqual({ name: "mock-db" });
   });
 });

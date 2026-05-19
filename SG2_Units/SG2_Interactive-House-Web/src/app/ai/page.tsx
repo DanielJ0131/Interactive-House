@@ -3,12 +3,14 @@
 import { useState } from "react";
 import { PageShell } from "@/components/pageShell";
 import TopHeader from "@/components/TopHeader";
+import GuestGate from "@/components/GuestGate";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { doc, updateDoc } from "firebase/firestore";
 import { db, model } from "@/utils/firebaseConfig";
 import Link from "next/link";
 import { CaretLeft, PaperPlaneRight } from "@phosphor-icons/react";
+import { useGuestMode } from "@/app/hooks/useGuestMode";
 
 type ChatMessage = {
   id: string;
@@ -113,6 +115,7 @@ async function executeDeviceCommand(
 }
 
 export default function AIPage() {
+  const isGuest = useGuestMode();
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
@@ -129,6 +132,7 @@ export default function AIPage() {
   };
 
   const handleSend = async () => {
+    if (isGuest) return;
     const trimmed = message.trim();
     if (!trimmed || loading) return;
 
@@ -219,84 +223,100 @@ ${trimmed}
     }
   };
 
-  return (
+return (
     <main className="min-h-screen bg-transparent">
-    <TopHeader />
-    <PageShell title="AI" subtitle="AI Control">
-      <div className="flex flex-col gap-6 max-w-4xl mx-auto">
-
-        {/* BACK TO HUB BUTTON - Matches Hub Styling */}
-        <Link
-          href="/hub"
-          className="group self-start flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md text-white/80 font-bold text-sm hover:bg-white/10 transition-all shadow-xl"
-        >
-          <CaretLeft size={18} weight="bold" className="group-hover:-translate-x-1 transition-transform" />
-          BACK TO HUB
-        </Link>
-
-        {/* CHAT WINDOW - Glassmorphism Style */}
-        <div className="h-[500px] overflow-y-auto rounded-[2rem] bg-white/5 border border-white/10 backdrop-blur-md p-6 shadow-2xl flex flex-col gap-4">
-          {messages.length === 0 ? (
-            <div className="h-full flex items-center justify-center text-white/20 uppercase tracking-[0.2em] font-black text-xs text-center">
-              Group 4 Software Engineering HKR
+      <TopHeader />
+      <PageShell title="AI" subtitle="AI Control">
+        <div className="flex flex-col gap-6 max-w-4xl mx-auto">
+          
+          {/* 1. If we are still checking cookies, show a subtle loading state instead of flashing the UI */}
+          {isGuest === null ? (
+            <div className="h-[500px] flex items-center justify-center text-white/20 uppercase tracking-[0.2em] font-black text-xs animate-pulse">
+              Loading...
             </div>
+          ) : isGuest === true ? (
+            /* 2. Confirmed Guest */
+            <GuestGate
+              title="Sign in required"
+              message="You need to sign up or log in to use AI control in guest mode."
+            />
           ) : (
-            messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`max-w-[85%] rounded-2xl p-4 text-sm shadow-lg ${msg.role === "user"
-                    ? "ml-auto ml-auto bg-[var(--color-accent)] text-black font-bold" // Active color matching Hub buttons
-                    : "mr-auto bg-white/10 text-white border border-white/10 backdrop-blur-sm"
-                  }`}
+            /* 3. Confirmed Authenticated User */
+            <>
+              {/* BACK TO HUB BUTTON - Matches Hub Styling */}
+              <Link
+                href="/hub"
+                className="group self-start flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md text-white/80 font-bold text-sm hover:bg-white/10 transition-all shadow-xl"
               >
-                {msg.role === "user" ? (
-                  <p>{msg.text}</p>
+                <CaretLeft size={18} weight="bold" className="group-hover:-translate-x-1 transition-transform" />
+                BACK TO HUB
+              </Link>
+
+              {/* CHAT WINDOW - Glassmorphism Style */}
+              <div className="h-[500px] overflow-y-auto rounded-[2rem] bg-white/5 border border-white/10 backdrop-blur-md p-6 shadow-2xl flex flex-col gap-4">
+                {messages.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-white/20 uppercase tracking-[0.2em] font-black text-xs text-center">
+                    Group 4 Software Engineering HKR
+                  </div>
                 ) : (
-                  <div className="prose prose-invert max-w-none">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {msg.text}
-                    </ReactMarkdown>
+                  messages.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={`max-w-[85%] rounded-2xl p-4 text-sm shadow-lg ${msg.role === "user"
+                          ? "ml-auto ml-auto bg-[var(--color-accent)] text-black font-bold" // Active color matching Hub buttons
+                          : "mr-auto bg-white/10 text-white border border-white/10 backdrop-blur-sm"
+                        }`}
+                    >
+                      {msg.role === "user" ? (
+                        <p>{msg.text}</p>
+                      ) : (
+                        <div className="prose prose-invert max-w-none">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {msg.text}
+                          </ReactMarkdown>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+
+                {loading && (
+                  <div className="flex items-center gap-2 text-[var(--color-accent)] text-[10px] font-black uppercase tracking-widest animate-pulse ml-2">
+                    <div className="w-1.5 h-1.5 bg-[var(--color-accent)] rounded-full" />
+                    AI is Thinking...
                   </div>
                 )}
               </div>
-            ))
-          )}
 
-          {loading && (
-            <div className="flex items-center gap-2 text-[var(--color-accent)] text-[10px] font-black uppercase tracking-widest animate-pulse ml-2">
-              <div className="w-1.5 h-1.5 bg-[var(--color-accent)] rounded-full" />
-              AI is Thinking...
-            </div>
+              {/* INPUT AREA - Rounded Bar Style */}
+              <div className="flex gap-3 bg-white/10 p-2 rounded-[2.5rem] border border-white/10 backdrop-blur-md shadow-2xl items-center">
+                <textarea
+                  className="flex-1 bg-transparent px-4 py-2 text-white placeholder:text-white/30 outline-none font-medium resize-none max-h-32"
+                  rows={1}
+                  value={message}
+                  placeholder="Write a command or a question..."
+                  onChange={(e) => setMessage(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSend();
+                    }
+                  }}
+                  disabled={loading}
+                />
+
+                <button
+                  onClick={handleSend}
+                  disabled={loading || !message.trim()}
+                  className="h-12 w-12 flex items-center justify-center rounded-full bg-[var(--color-accent)] text-black hover:scale-105 active:scale-95 transition-all disabled:opacity-20 shadow-lg"
+                >
+                  <PaperPlaneRight size={22} weight="fill" />
+                </button>
+              </div>
+            </>
           )}
         </div>
-
-        {/* INPUT AREA - Rounded Bar Style */}
-        <div className="flex gap-3 bg-white/10 p-2 rounded-[2.5rem] border border-white/10 backdrop-blur-md shadow-2xl items-center">
-          <textarea
-            className="flex-1 bg-transparent px-4 py-2 text-white placeholder:text-white/30 outline-none font-medium resize-none max-h-32"
-            rows={1}
-            value={message}
-            placeholder="Write a command or a question..."
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleSend();
-              }
-            }}
-            disabled={loading}
-          />
-
-          <button
-            onClick={handleSend}
-            disabled={loading || !message.trim()}
-            className="h-12 w-12 flex items-center justify-center rounded-full bg-[var(--color-accent)] text-black hover:scale-105 active:scale-95 transition-all disabled:opacity-20 shadow-lg"
-          >
-            <PaperPlaneRight size={22} weight="fill" />
-          </button>
-        </div>
-      </div>
-    </PageShell>
-  </main>
+      </PageShell>
+    </main>
   );
 }

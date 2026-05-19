@@ -1,12 +1,28 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import Icon from '@mdi/react';
 import { mdiHomeOutline } from '@mdi/js';
+import { signOut } from "firebase/auth";
+import { auth } from "@/utils/firebaseConfig";
+import { startGuestSession } from "@/utils/guestSession";
 
 
 export default function Home() {
+  const router = useRouter();
+
+  const handleGuestExplore = async () => {
+    try {
+      await signOut(auth);
+    } catch {
+      // Ignore sign-out errors when no active session exists.
+    }
+    startGuestSession();
+    router.push("/hub");
+  };
+
   return (
     <div className="min-h-screen bg-transparent text-white">
       {/* Background Blurs */}
@@ -25,7 +41,7 @@ export default function Home() {
 
         {/* --- TEXT CONTENT --- */}
         <h1 className="mt-8 text-center text-4xl font-extrabold tracking-tight uppercase">
-          INTERACTIVE SMART HOUSE
+          INTERACTIVE HOUSE
         </h1>
 
         <p className="mt-3 text-center text-lg text-white/45">
@@ -41,12 +57,13 @@ export default function Home() {
             Get Started
           </Link>
 
-          <Link
-            href="/guest_hub"
+          <button
+            type="button"
+            onClick={handleGuestExplore}
             className="block w-full text-center text-white/45 hover:text-white transition-colors"
           >
-            Explore as Guest →
-          </Link>
+            Explore as Guest {"->"}
+          </button>
 
           <div className="pt-10 text-center text-xs tracking-[0.5em] text-white/20">
             INTERACTIVE HOUSE

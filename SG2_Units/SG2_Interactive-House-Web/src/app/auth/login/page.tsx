@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/utils/firebaseConfig";
+import { clearGuestSessionCookie } from "@/utils/guestSession";
 
 function firebaseErrorToMessage(code?: string) {
   switch (code) {
@@ -50,6 +51,7 @@ export default function LoginPage() {
         cleanEmail,
         password
       );
+      clearGuestSessionCookie();
       document.cookie = "auth_session=true; path=/; max-age=604800; SameSite=Lax";
 
       router.replace("/hub");

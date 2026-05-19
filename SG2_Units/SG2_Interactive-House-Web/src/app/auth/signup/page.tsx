@@ -9,6 +9,7 @@ import { FirebaseError } from "firebase/app";
 
 import { db } from "@/utils/firebaseConfig"; // Make sure db is exported from your config
 import { doc, setDoc } from "firebase/firestore";
+import { clearGuestSessionCookie } from "@/utils/guestSession";
 function mapFirebaseAuthError(code?: string) {
     switch (code) {
         case "auth/fullname-required":
@@ -59,10 +60,10 @@ export default function SignupPage() {
                 role: "user" // Optional: useful for permissions later
             });
 
+            clearGuestSessionCookie();
             document.cookie = "auth_session=true; path=/; max-age=604800; SameSite=Lax";
             router.push("/hub");
         } catch (err) {
-            console.log(err);
             const friendly = mapFirebaseAuthError((err as FirebaseError)?.code);
             setError(friendly || (err as FirebaseError)?.code || (err as FirebaseError)?.message || "Signup failed");
         }
@@ -74,7 +75,7 @@ export default function SignupPage() {
     return (
         <main className="min-h-screen flex items-center justify-center px-6">
             <div className="w-full max-w-md">
-                <Link href="/auth/login" className="text-[var(--color-accent)] hover:underline">
+                <Link href="/" className="text-[var(--color-accent)] hover:underline">
                     ← Back
                 </Link>
 
