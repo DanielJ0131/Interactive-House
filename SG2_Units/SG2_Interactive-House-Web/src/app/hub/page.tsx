@@ -11,7 +11,7 @@ import { useSpeechContext } from '../context/SpeechContext';
 import TopHeader from "@/components/TopHeader";
 import { PageShell } from "@/components/pageShell";
 import Icon from '@mdi/react';
-import { mdiLightbulb, mdiDoor, mdiWeatherWindy, mdiFan, mdiRun, mdiCloud, mdiAlert, mdiRefresh, mdiMicrophone, mdiChevronRight, mdiWeatherSunny, mdiFlower } from '@mdi/js';
+import { mdiLightbulb, mdiDoor, mdiWeatherWindy, mdiFan, mdiRun, mdiCloud, mdiBellAlert, mdiAlert, mdiRefresh, mdiMicrophone, mdiChevronRight, mdiWeatherSunny, mdiFlower } from '@mdi/js';
 
 
 function DeviceCard({
@@ -396,7 +396,7 @@ if ((text.includes("close door")) && door){
 
                     <SliderCard title="Orange Light" pin="5" icon={<Icon path={mdiLightbulb} size={1.5} />} value={orange_light} onChange={handleOrangeLightChange} />
 
-                    <DeviceCard title="Buzzer" pin="3" icon={mdiCloud} state={buzzer ? "ON" : "OFF"} onToggle={toggleBuzzer} />
+                    <DeviceCard title="Buzzer" pin="3" icon={mdiBellAlert} state={buzzer ? "ON" : "OFF"} onToggle={toggleBuzzer} />
                 </div>
 
                 <h2 className="text-[10px] tracking-[0.4em] text-[var(--color-secondary-accent)] font-black mt-12 mb-6 uppercase opacity-80">
