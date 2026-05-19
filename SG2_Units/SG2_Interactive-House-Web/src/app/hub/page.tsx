@@ -225,9 +225,21 @@ if ((text.includes("close door")) && door){
 
     // Auth & Data Listeners
     useEffect(() => {
+        const formatName = (displayName?: string | null, email?: string | null) => {
+            if (displayName && displayName.trim()) return displayName;
+            if (!email) return "Home";
+            const local = email.split("@")[0];
+            const parts = local.split(/[._-]/).filter(Boolean);
+            const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+            if (parts.length === 0) return "Home";
+            const first = capitalize(parts[0]);
+            const last = parts.length > 1 ? capitalize(parts.slice(1).join(" ")) : "";
+            return last ? `${first} ${last}` : first;
+        };
+
         const unsub = onAuthStateChanged(auth, (user) => {
             if (!user) router.replace("/auth/login");
-            else setUsername(user.email?.split("@")[0] || "Home");
+            else setUsername(formatName(user.displayName, user.email));
         });
         return () => unsub();
     }, [router]);
@@ -316,7 +328,7 @@ if ((text.includes("close door")) && door){
         <main className="min-h-screen bg-transparent">
 <TopHeader />
 
-<PageShell title={`${username}'s Hub`} subtitle="Control Center">
+<PageShell title={`${username}'s Home`} subtitle="Control Center">
 
                 {/* <VoiceTile /> */}
 
