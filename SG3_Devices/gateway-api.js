@@ -1,7 +1,8 @@
 const express = require("express");
 const cors = require("cors");
+const { SerialPort } = require("serialport");
 
-require("dotenv").config({ path: "config/.env" });
+require("dotenv").config({ path: "connect/gateway/config/.env" });
 
 const app = express();
 app.use(cors());
@@ -12,9 +13,7 @@ app.post("/command", (req, res) => {
   
     console.log("Received command:", command);
   
-    if (MOCK_SERIAL) {
-      console.log("[MOCK SERIAL] Sending to Arduino:", command);
-    }
+    sendCommand(command);
   
     res.json({
       success: true,
@@ -25,15 +24,23 @@ app.post("/command", (req, res) => {
 const PORT = process.env.API_PORT || 5050;
 const MOCK_SERIAL = process.env.MOCK_SERIAL !== "false";
 
-function sendCommand(command) {
-  if (MOCK_SERIAL) {
-    console.log("[MOCK] Would send:", command);
-    return;
-  }
+const serialPort = !MOCK_SERIAL
+  ? new SerialPort({
+      path: process.env.SERIAL_PORT,
+      baudRate: Number(process.env.SERIAL_BAUD || 9600),
+    })
+  : null;
 
-  // Later we connect this to the real gateway/serial logic
-  console.log("[REAL MODE NOT CONNECTED YET] Command:", command);
-}
+  function sendCommand(command) {
+    if (MOCK_SERIAL) {
+      console.log("[MOCK] Would send:", command);
+      return;
+    }
+  
+    console.log("[SERIAL] Sending:", command);
+  
+    serialPort.write(command + "\n");
+  }
 
 app.get("/health", (req, res) => {
   res.json({
