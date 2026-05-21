@@ -1,9 +1,32 @@
+/**
+ * @file CommandHandler.cpp
+ * @brief Implementation of the serial command parser.
+ *
+ * Parses newline-terminated ASCII command strings received from the SG3 hub
+ * and updates shared global state (Config.h) or the MusicEngine accordingly.
+ * Invalid or malformed commands are silently discarded to avoid blocking the
+ * main loop.
+ */
+
 #include "CommandHandler.h"
 #include "../config/Config.h"
 #include "../music/MusicEngine.h"
 
 extern MusicEngine music;
 
+/**
+ * @brief Parse and execute a single serial command.
+ *
+ * See CommandHandler.h for the full command reference table.
+ *
+ * Music note loading sequence expected from the hub:
+ *  1. Send "C" to reset the engine and clear any existing melody.
+ *  2. Send one or more "A:<hz>,<ms>" commands to populate the note queue.
+ *  3. Send "E" to mark the end of the melody (resets index to 0).
+ *  4. Send "P:1" to start playback.
+ *
+ * @param c Trimmed command string (no newline).
+ */
 void handleCommand(String c) {
 
     c.trim();

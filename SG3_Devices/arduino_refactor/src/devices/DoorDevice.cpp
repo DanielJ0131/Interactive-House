@@ -1,3 +1,8 @@
+/**
+ * @file DoorDevice.cpp
+ * @brief DoorDevice Observer implementation.
+ */
+
 #include "DoorDevice.h"
 #include "../config/Config.h"
 

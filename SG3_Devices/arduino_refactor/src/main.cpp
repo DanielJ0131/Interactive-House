@@ -1,3 +1,28 @@
+/**
+ * @file main.cpp
+ * @brief Arduino entry point for the SG3 smart home controller.
+ *
+ * Initialises all subsystems and runs the main control loop, which:
+ *  - Reads incoming serial commands and forwards them to CommandHandler.
+ *  - Polls all sensors every iteration via readSensors().
+ *  - Runs the Observer-based safety checks (gas, steam) that can
+ *    automatically activate devices (fan, buzzer, door, window).
+ *  - Applies pending device state changes to hardware via updateDevices().
+ *  - Periodically transmits sensor telemetry and device state over Serial
+ *    in a format consumed by the SG3 hub application.
+ *  - Keeps the 16x2 I2C LCD display up to date with active states.
+ *  - Drives non-blocking music playback through MusicEngine::update().
+ *
+ * Serial telemetry format (sent every 200 ms, or 1000 ms while music plays):
+ *   S:<gas>,<light>,<soil>,<steam>,<motion>
+ *   STATE:door=<0|1>,window=<0|1>,fanINA=<0|1>,fanINB=<0|1>,
+ *         light=<0|1>,buzzer=<0|1>,orange_light=<0-255>
+ *
+ * Loop timing:
+ *   - 20 ms delay when music is playing or serial data is present (responsive).
+ *   - 200 ms delay otherwise (power-efficient idle).
+ */
+
 #include <Arduino.h>
 
 #include "config/Config.h"
@@ -17,18 +42,27 @@
 #include "music/MusicEngine.h"
 
 // OBJECTS
-LCDManager lcd;
-String buffer = "";
+LCDManager lcd;       ///< I2C LCD display manager (16x2, address 0x27).
+String buffer = "";   ///< Accumulates incoming serial characters until a newline.
 
-GasSafety gas;
-SteamSensor steam;
+GasSafety gas;          ///< Subject that fires observer notifications when gas exceeds threshold.
+SteamSensor steam;      ///< Subject that fires observer notifications on steam state changes.
 
-Fan fan;
-BuzzerDevice buzzerDev;
-DoorDevice doorDev;
-WindowDevice windowDev;
+Fan fan;                ///< Observer: turns fan on when gas is detected.
+BuzzerDevice buzzerDev; ///< Observer: activates buzzer when gas is detected.
+DoorDevice doorDev;     ///< Observer: closes door when steam is detected.
+WindowDevice windowDev; ///< Observer: closes window when steam is detected.
 
-// SETUP
+/**
+ * @brief One-time initialisation run by the Arduino framework at power-on.
+ *
+ * - Opens Serial at 115200 baud.
+ * - Configures GPIO pins and attaches servos (via initDevices()).
+ * - Initialises the LCD and prints "System Ready".
+ * - Wires Observer instances to their Subject counterparts:
+ *     - gas  → fan, buzzerDev
+ *     - steam → doorDev, windowDev
+ */
 void setup()
 {
     Serial.begin(115200);
@@ -44,7 +78,20 @@ void setup()
     steam.attach(&windowDev);
 }
 
-// LOOP
+/**
+ * @brief Main control loop, called repeatedly by the Arduino framework.
+ *
+ * Execution order each iteration:
+ *  1. music.update()     – advance melody playback (non-blocking).
+ *  2. Serial read        – accumulate characters; dispatch on newline.
+ *  3. readSensors()      – sample all analogue and digital sensor pins.
+ *  4. gas.check()        – notify fan & buzzer observers if gas > threshold.
+ *  5. steam.check()      – notify door & window observers on wet/dry transition.
+ *  6. updateDevices()    – write current global state to GPIO / servos / PWM.
+ *  7. Telemetry TX       – send S: and STATE: lines if interval has elapsed.
+ *  8. LCD update         – refresh display if content changed or 200 ms elapsed.
+ *  9. delay()            – adaptive sleep (20 ms active / 200 ms idle).
+ */
 void loop()
 {
     music.update();

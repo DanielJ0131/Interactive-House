@@ -1,3 +1,8 @@
+/**
+ * @file WindowDevice.cpp
+ * @brief WindowDevice Observer implementation.
+ */
+
 #include "WindowDevice.h"
 #include "../config/Config.h"
 
