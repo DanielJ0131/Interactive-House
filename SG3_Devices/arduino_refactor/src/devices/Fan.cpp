@@ -1,3 +1,8 @@
+/**
+ * @file Fan.cpp
+ * @brief Fan Observer implementation.
+ */
+
 #include "Fan.h"
 #include "../config/Config.h"
 

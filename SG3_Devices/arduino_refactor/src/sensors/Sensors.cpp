@@ -1,3 +1,8 @@
+/**
+ * @file Sensors.cpp
+ * @brief Implementation of the unified sensor sampling function.
+ */
+
 #include "Sensors.h"
 
 SensorData readSensors() {

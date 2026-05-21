@@ -1,3 +1,8 @@
+/**
+ * @file BuzzerDevice.cpp
+ * @brief BuzzerDevice Observer implementation.
+ */
+
 #include "BuzzerDevice.h"
 #include "../config/Config.h"
 

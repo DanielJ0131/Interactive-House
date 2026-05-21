@@ -1,6 +1,17 @@
+/**
+ * @file MusicEngine.cpp
+ * @brief Non-blocking melody playback implementation.
+ *
+ * Timing strategy: startNote() records noteEndMs as (previous noteEndMs +
+ * duration) rather than (millis() + duration).  This means any small overrun
+ * in loop() execution time does not accumulate as timing drift across the
+ * melody — each note's logical start is anchored to the previous note's
+ * logical end.
+ */
+
 #include "MusicEngine.h"
 
-#define BUZZER_PIN 3
+#define BUZZER_PIN 3 ///< Arduino pin used for tone generation (shared with buzzer).
 
 void MusicEngine::reset() {
     length = 0;

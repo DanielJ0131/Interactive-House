@@ -1,3 +1,13 @@
+/**
+ * @file Devices.cpp
+ * @brief Implementation of hardware initialisation and state-to-GPIO mapping.
+ *
+ * All writes to physical outputs are centralised here so that the rest of the
+ * firmware only needs to update the shared state variables in Config.h;
+ * updateDevices() then translates that state into actual hardware signals each
+ * loop iteration.
+ */
+
 #include <Arduino.h>
 #include "Devices.h"
 #include "../config/Config.h"

@@ -1,3 +1,8 @@
+/**
+ * @file GasSafety.cpp
+ * @brief GasSafety Subject implementation.
+ */
+
 #include "GasSafety.h"
 #include "../config/Config.h"
 
