@@ -128,3 +128,22 @@ app.listen(PORT, () => {
   console.log(`Gateway API running on http://localhost:${PORT}`);
   console.log(`Mode: ${MOCK_SERIAL ? "mock" : "real"}`);
 });
+
+// Graceful shutdown for Ctrl+C / termination.
+function shutdown(signal) {
+  console.log(`\nReceived ${signal}, shutting down...`);
+
+  server.close(() => {
+    if (serialPort && serialPort.isOpen) {
+      serialPort.close(() => {
+        process.exit(0);
+      });
+      return;
+    }
+
+    process.exit(0);
+  });
+}
+
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));
