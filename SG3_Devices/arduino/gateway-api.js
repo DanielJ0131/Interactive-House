@@ -124,6 +124,56 @@ app.post("/orange-light", (req, res) => {
   res.json({ ok: true, command });
 });
 
+// music
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function sendCommandAsync(command, delayMs = 5) {
+  sendCommand(command);
+
+  if (delayMs > 0) {
+    await sleep(delayMs);
+  }
+}
+
+app.post("/music/play", async (req, res) => {
+  const notes = req.body?.notes;
+
+  if (!Array.isArray(notes)) {
+    return res.status(400).json({
+      ok: false,
+      error: "notes must be an array",
+    });
+  }
+
+  await sendCommandAsync("C");
+
+  for (const note of notes) {
+    const frequency = Number(note.frequency ?? note.note);
+    const duration = Number(note.duration);
+
+    if (!Number.isFinite(frequency) || !Number.isFinite(duration)) {
+      continue;
+    }
+
+    await sendCommandAsync(`A:${frequency},${duration}`);
+  }
+
+  await sendCommandAsync("E");
+  await sendCommandAsync("P:1");
+
+  res.json({
+    ok: true,
+    notesSent: notes.length,
+  });
+});
+
+app.post("/music/stop", (req, res) => {
+  sendCommand("P:0");
+  res.json({ ok: true, command: "P:0" });
+});
+
 const server = app.listen(PORT, () => {
   console.log(`Gateway API running on http://localhost:${PORT}`);
   console.log(`Mode: ${MOCK_SERIAL ? "mock" : "real"}`);
