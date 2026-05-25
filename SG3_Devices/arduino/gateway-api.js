@@ -124,7 +124,7 @@ app.post("/orange-light", (req, res) => {
   res.json({ ok: true, command });
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Gateway API running on http://localhost:${PORT}`);
   console.log(`Mode: ${MOCK_SERIAL ? "mock" : "real"}`);
 });
@@ -132,6 +132,11 @@ app.listen(PORT, () => {
 // Graceful shutdown for Ctrl+C / termination.
 function shutdown(signal) {
   console.log(`\nReceived ${signal}, shutting down...`);
+
+  if (!server) {
+    process.exit(0);
+    return;
+  }
 
   server.close(() => {
     if (serialPort && serialPort.isOpen) {

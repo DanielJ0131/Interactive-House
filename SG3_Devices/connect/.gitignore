@@ -1,8 +1,0 @@
-.venv/
-config/serviceAccountKey.json
-**/serviceAccountKey.json
-config/.env
-logs/
-__pycache__/
-*.pyc
-.idea
