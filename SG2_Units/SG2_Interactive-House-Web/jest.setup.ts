@@ -25,7 +25,7 @@ if (!globalThis.Headers) {
 		get(key: string) {
 			return this.map.get(key.toLowerCase()) ?? null;
 		}
-	} as typeof Headers;
+	} as unknown as typeof Headers;
 }
 
 if (!globalThis.Response) {
@@ -47,13 +47,13 @@ if (!globalThis.Response) {
 		async text() {
 			return this.bodyText;
 		}
-	} as typeof Response;
+	} as unknown as typeof Response;
 }
 
 if (!globalThis.Request) {
 	globalThis.Request = class Request {
 		constructor(public input: string) {}
-	} as typeof Request;
+	} as unknown as typeof Request;
 }
 
 if (!globalThis.fetch) {
