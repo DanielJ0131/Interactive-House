@@ -2,7 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const { SerialPort } = require("serialport");
 
-require("dotenv").config({ path: "connect/gateway/config/.env" });
+require("dotenv").config({ path: "config/.env" });
 
 const app = express();
 app.use(cors());
