@@ -1,0 +1,11 @@
+{
+  "fan_INA": { "state": "off" },
+  "fan_INB": { "state": "off" },
+  "door": { "state": "close" },
+  "window": { "state": "close" },
+  "buzzer": { "state": "off" },
+  "music": { "state": "off" },
+  "white_light": { "state": "off" },
+  "orange_light": { "value": 0 },
+  "ledTextDisplay": "Hello Rust"
+}

@@ -1,0 +1,30 @@
+[package]
+name = "interactive-house-uno"
+version = "0.1.0"
+edition = "2021"
+authors = ["Interactive House Team"]
+license = "MIT"
+
+[dependencies]
+arduino-hal = { git = "https://github.com/rahix/avr-hal", features = ["arduino-uno"] }
+avr-device = "0.8.1"
+embedded-hal = "0.2.7"
+panic-halt = "0.2"
+ufmt = "0.2"
+
+[[bin]]
+name = "interactive-house-uno"
+path = "src/main.rs"
+test = false
+bench = false
+
+[profile.dev]
+panic = "abort"
+lto = true
+opt-level = "s"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
