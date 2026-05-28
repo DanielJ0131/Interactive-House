@@ -5,7 +5,7 @@
  * creation using mocked Firestore modules.
  */
 
-import { INITIAL_DEVICE_DATA } from '../../data/deviceDefaults';
+import { INITIAL_DEVICE_DATA } from '../../../data/deviceDefaults';
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 

@@ -1005,6 +1005,7 @@ useEffect(() => {
 
       {isAdmin && (
         <Pressable
+          testID={`delete-melody-${item.id}`}
           onPress={(event) => {
             event.stopPropagation();
             handleDeleteMelody(item);
@@ -1091,7 +1092,10 @@ useEffect(() => {
             editable={!isSavingMelody}
             placeholder="Frequencies (0 for silent), e.g. 262, 294, 0, 330"
             placeholderTextColor={theme.colors.subtleText}
-            style={{ backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.border, color: theme.colors.text }}
+            multiline
+            numberOfLines={2}
+            textAlignVertical="top"
+            style={{ backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.border, color: theme.colors.text, minHeight: 56 }}
             className="border rounded-xl px-3 py-3 mb-3"
           />
           <TextInput
@@ -1100,7 +1104,10 @@ useEffect(() => {
             editable={!isSavingMelody}
             placeholder="Arduino delays (ms), e.g. 500, 500, 250, 750"
             placeholderTextColor={theme.colors.subtleText}
-            style={{ backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.border, color: theme.colors.text }}
+            multiline
+            numberOfLines={2}
+            textAlignVertical="top"
+            style={{ backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.border, color: theme.colors.text, minHeight: 56 }}
             className="border rounded-xl px-3 py-3 mb-3"
           />
           <Pressable
@@ -1203,7 +1210,10 @@ useEffect(() => {
                         editable={!isUpdatingMelody}
                         placeholder="Frequencies (0 for silent), e.g. 262, 294, 0, 330"
                         placeholderTextColor={theme.colors.subtleText}
-                        style={{ backgroundColor: theme.colors.surface, borderColor: theme.colors.border, color: theme.colors.text, fontFamily: monospaceFont }}
+                        multiline
+                        numberOfLines={2}
+                        textAlignVertical="top"
+                        style={{ backgroundColor: theme.colors.surface, borderColor: theme.colors.border, color: theme.colors.text, fontFamily: monospaceFont, minHeight: 56 }}
                         className="border rounded-xl px-3 py-3 mb-2"
                       />
                       <TextInput
@@ -1212,7 +1222,10 @@ useEffect(() => {
                         editable={!isUpdatingMelody}
                         placeholder="Arduino delays (ms), e.g. 500, 500, 250, 750"
                         placeholderTextColor={theme.colors.subtleText}
-                        style={{ backgroundColor: theme.colors.surface, borderColor: theme.colors.border, color: theme.colors.text, fontFamily: monospaceFont }}
+                        multiline
+                        numberOfLines={2}
+                        textAlignVertical="top"
+                        style={{ backgroundColor: theme.colors.surface, borderColor: theme.colors.border, color: theme.colors.text, fontFamily: monospaceFont, minHeight: 56 }}
                         className="border rounded-xl px-3 py-3 mb-3"
                       />
                       <Pressable

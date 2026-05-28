@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import WelcomeScreen from '../../../app/index';
+import { Platform } from 'react-native';
+import WelcomeScreen, { withTimeout } from '../../../app/index';
 import { onAuthStateChanged } from 'firebase/auth';
 
 const mockReplace = jest.fn();
@@ -73,6 +74,10 @@ describe('WelcomeScreen', () => {
     });
   });
 
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('redirects immediately when currentUser already exists', () => {
     mockCurrentUser = { uid: 'u1' };
 
@@ -124,6 +129,27 @@ describe('WelcomeScreen', () => {
     expect(mockPush).toHaveBeenCalledWith('/(auth)/login');
   });
 
+  it('blurs web target before navigation', async () => {
+    const originalOS = Platform.OS;
+    Object.defineProperty(Platform, 'OS', { configurable: true, value: 'web' });
+
+    const blurSpy = jest.fn();
+    const { getByText } = render(<WelcomeScreen />);
+
+    await waitFor(() => {
+      expect(getByText('Get Started')).toBeTruthy();
+    });
+
+    fireEvent.press(getByText('Get Started'), {
+      currentTarget: { blur: blurSpy },
+    });
+
+    expect(blurSpy).toHaveBeenCalled();
+    expect(mockPush).toHaveBeenCalledWith('/(auth)/login');
+
+    Object.defineProperty(Platform, 'OS', { configurable: true, value: originalOS });
+  });
+
   it('sets guest mode and redirects when Explore as Guest is pressed', async () => {
     const { getByText } = render(<WelcomeScreen />);
 
@@ -135,5 +161,19 @@ describe('WelcomeScreen', () => {
 
     expect(mockSetIsGuest).toHaveBeenCalledWith(true);
     expect(mockReplace).toHaveBeenCalledWith('/(tabs)/hub');
+  });
+
+  it('rejects with timeout error when promise exceeds timeout limit', async () => {
+    jest.useFakeTimers();
+
+    const neverResolvingPromise = new Promise(() => {});
+
+    const timedPromise = withTimeout(neverResolvingPromise, 1000);
+
+    jest.advanceTimersByTime(1000);
+
+    await expect(timedPromise).rejects.toThrow(
+      'Request timed out. Please check your connection and try again.'
+    );
   });
 });

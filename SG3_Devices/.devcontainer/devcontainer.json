@@ -1,0 +1,25 @@
+{
+  "name": "arduino-rust",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "workspaceFolder": "/workspaces/arduino-rust/.devcontainer/arduino-rust",
+  "shutdownAction": "stopContainer",
+  "remoteUser": "root",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "vadimcn.vscode-lldb",
+        "ms-vscode.cpptools",
+        "ms-vscode.makefile-tools",
+        "tamasfe.even-better-toml"
+      ],
+      "settings": {
+        "rust-analyzer.checkOnSave.command": "clippy"
+      }
+    }
+  },
+  "postCreateCommand": "bash -lc 'set -e; rustup show; cargo --version; avr-gcc --version; avrdude -? >/dev/null 2>&1 || true; cd /workspaces/arduino-rust/.devcontainer/arduino-rust && cargo +nightly fetch --target avr-none; if [ -d gateway ]; then cd gateway && cargo fetch; fi'"
+}
